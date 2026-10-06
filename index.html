@@ -1,0 +1,2081 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Le Relevage</title>
+<meta name="description" content="Jeu en 3D : rendre sa voix au grand orgue de Saint-Germain-en-Laye en retrouvant des registrations à l'oreille.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IM+Fell+French+Canon:ital@0;1&family=IM+Fell+French+Canon+SC&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&display=swap">
+<style>
+/* Concept : une tribune d'orgue au crépuscule. La scène 3D occupe tout l'écran, la console (tirants à gauche et à droite, commandes au centre) se tient en bas. Univers unique, sombre et doré. */
+:root {
+  color-scheme: dark;
+  --nave: #0d0b09;
+  --oak: #2b1d13;
+  --oak-2: #3d2a1b;
+  --gold: #c8a24c;
+  --gold-hi: #e7c877;
+  --porcelain: #f7f1e3;
+  --ivory: #e9dfc8;
+  --ink: #ebe3d0;
+  --ink-dim: #b4a891;
+  --ink-faint: #82786a;
+  --azure: #2f4f9e;
+  --azure-hi: #6f8bd0;
+  --ok: #9cc787;
+  --warn: #e0b04e;
+  --label-ink: #21170f;
+  --label-red: #a3241a;
+  --scrim: rgba(13, 10, 7, 0.86);
+  --line: rgba(200, 162, 76, 0.3);
+  --f-display: "IM Fell French Canon", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+  --f-sc: "IM Fell French Canon SC", "IM Fell French Canon", "Palatino Linotype", Georgia, serif;
+  --f-body: "Spectral", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--nave); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.5;
+  overflow: hidden; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; }
+#app { position: fixed; inset: 0; overflow: hidden; }
+#scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#veil { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 38%, transparent 50%, rgba(6, 4, 3, 0.6) 100%); }
+
+.screen {
+  position: absolute; inset: 0; pointer-events: none;
+  padding-inline: 16px;
+  padding-block: calc(14px + env(safe-area-inset-top, 0px)) calc(14px + env(safe-area-inset-bottom, 0px));
+}
+.screen > * { pointer-events: auto; }
+.screen.center { display: grid; place-items: center; }
+
+/* Typographie */
+.eyebrow { font-family: var(--f-sc); letter-spacing: 0.16em; font-size: 0.82rem; color: var(--gold); margin: 0; }
+h1 {
+  font-family: var(--f-display); font-weight: 400; margin: 0;
+  font-size: clamp(3.2rem, 11vw, 7.2rem); line-height: 0.95; color: var(--porcelain);
+  text-shadow: 0 0 42px rgba(231, 200, 119, 0.28), 0 2px 0 rgba(0, 0, 0, 0.6); text-wrap: balance;
+}
+.lede { font-family: var(--f-display); font-style: italic; font-size: clamp(1.15rem, 2.6vw, 1.6rem); margin: 0; text-wrap: balance; }
+.fine { font-size: 0.85rem; color: var(--ink-dim); margin: 0; }
+p { margin: 0; }
+
+/* Boutons */
+.btn {
+  font: 500 1rem/1.2 var(--f-body); color: var(--ink);
+  background: rgba(43, 29, 19, 0.88); border: 1px solid var(--line); border-radius: 3px;
+  padding: 0.65em 1.05em; min-height: 44px; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.btn:hover { border-color: var(--gold); }
+.btn:active { transform: translateY(1px); }
+.btn:focus-visible, .knob:focus-visible, .menu-item:focus-visible, .tile:focus-visible, .pill:focus-visible, .tab:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 3px; }
+.btn-gold { background: linear-gradient(180deg, #ddb862, #a9842f); color: #1c130a; border-color: #ecd393; font-weight: 600; }
+.btn-gold:hover { border-color: #fff1c4; }
+.btn-azure { background: linear-gradient(180deg, #3b5db2, #263f7f); border-color: var(--azure-hi); color: #f3efe4; font-weight: 600; }
+.btn-quiet { background: rgba(13, 10, 7, 0.55); }
+.btn-lg { font-size: 1.12rem; padding: 0.8em 1.6em; }
+.btn[disabled] { opacity: 0.45; cursor: default; }
+
+/* Titre */
+.title-block {
+  text-align: center; display: grid; gap: 18px; justify-items: center; max-width: 46rem;
+  padding: 36px 28px; background: radial-gradient(closest-side, rgba(9, 7, 5, 0.8), rgba(9, 7, 5, 0));
+}
+.colophon {
+  position: absolute; left: 16px; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  text-align: center; font-size: 0.8rem; color: var(--ink-faint);
+}
+
+/* Menu */
+.menu { display: grid; gap: 6px; width: min(30rem, 100%); padding: 26px 22px; background: var(--scrim); border: 1px solid var(--line); }
+.menu-head { text-align: center; display: grid; gap: 4px; margin-bottom: 10px; }
+.menu-head h2 { font-family: var(--f-display); font-weight: 400; font-size: 2.5rem; margin: 0; color: var(--porcelain); line-height: 1; }
+.menu-item {
+  display: grid; gap: 2px; text-align: left; padding: 11px 14px; min-height: 58px;
+  background: transparent; border: 0; border-left: 2px solid transparent; cursor: pointer;
+}
+.menu-item:hover { border-left-color: var(--gold); background: rgba(200, 162, 76, 0.08); }
+.mi-name { font-family: var(--f-display); font-size: 1.45rem; color: var(--porcelain); line-height: 1.15; }
+.mi-sub { font-size: 0.9rem; color: var(--ink-dim); }
+
+/* Feuilles (campagne, chronique, réglages) */
+.panel-screen { display: flex; align-items: center; justify-content: center; }
+.sheet { width: min(54rem, 100%); max-height: 100%; overflow-y: auto; background: var(--scrim); border: 1px solid var(--line); padding: 22px; }
+.sheet-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.sheet-head h2 { font-family: var(--f-display); font-weight: 400; font-size: 2rem; margin: 0; color: var(--porcelain); flex: 1; min-width: 0; line-height: 1.1; }
+.sheet-intro { color: var(--ink-dim); max-width: 62ch; margin-bottom: 8px; }
+
+.chapter { padding-block: 14px; border-top: 1px solid var(--line); }
+.chapter-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.chapter-roman { font-family: var(--f-display); font-size: 1.7rem; color: var(--gold); min-width: 2.4ch; }
+.chapter-title { font-family: var(--f-display); font-size: 1.4rem; color: var(--porcelain); }
+.chapter-era { font-size: 0.9rem; color: var(--ink-dim); font-style: italic; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: 8px; margin-top: 10px; }
+.tile {
+  display: grid; gap: 4px; align-content: start; text-align: left; padding: 10px 12px; min-height: 66px;
+  background: rgba(43, 29, 19, 0.6); border: 1px solid var(--line); cursor: pointer;
+}
+.tile:hover:not([disabled]) { border-color: var(--gold); }
+.tile[disabled] { opacity: 0.42; cursor: default; }
+.tile-name { font-family: var(--f-display); font-size: 1.08rem; color: var(--porcelain); line-height: 1.15; }
+.tile-meta { font-size: 0.82rem; color: var(--ink-dim); }
+.stars { color: var(--gold-hi); letter-spacing: 0.14em; font-size: 0.95rem; white-space: nowrap; }
+.stars .off { color: rgba(200, 162, 76, 0.28); }
+
+.cards { display: grid; gap: 12px; margin-top: 12px; }
+.card { display: grid; grid-template-columns: 7.5rem 1fr; gap: 14px; padding: 14px 0; border-top: 1px solid var(--line); }
+.card-year { font-family: var(--f-body); font-size: 1.15rem; color: var(--gold); line-height: 1.3; font-variant-numeric: lining-nums tabular-nums; }
+.card h3 { font-family: var(--f-display); font-weight: 400; font-size: 1.35rem; margin: 0 0 4px; color: var(--porcelain); }
+.card p { color: var(--ink); max-width: 64ch; }
+.card.locked { opacity: 0.5; }
+.card.locked p { font-style: italic; color: var(--ink-dim); }
+
+.settings { display: grid; gap: 18px; margin-top: 10px; }
+.set-group { display: grid; gap: 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+.set-group h3 { font-family: var(--f-sc); font-weight: 400; letter-spacing: 0.12em; font-size: 0.9rem; color: var(--gold); margin: 0; }
+.choice { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.choice input { margin-top: 0.35em; accent-color: var(--gold); width: 18px; height: 18px; }
+.choice small { display: block; color: var(--ink-dim); }
+.slider-row { display: grid; grid-template-columns: 9rem 1fr; gap: 12px; align-items: center; }
+input[type="range"] { accent-color: var(--gold); width: 100%; min-width: 0; }
+.keys-help { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; font-size: 0.92rem; }
+.keys-help kbd { font-family: var(--f-body); font-weight: 600; color: var(--porcelain); background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; }
+
+/* HUD commun (niveau, console) */
+.hud { display: flex; flex-direction: column; justify-content: space-between; gap: 10px; }
+.hud-top { display: flex; align-items: flex-start; gap: 10px; }
+.hud-title { flex: 1; min-width: 0; text-align: center; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9); }
+.hud-title h2 { font-family: var(--f-display); font-weight: 400; font-size: clamp(1.4rem, 3.4vw, 2.3rem); margin: 0; color: var(--porcelain); line-height: 1.1; text-wrap: balance; }
+.hud-top .stars { padding-top: 12px; min-width: 4.5rem; text-align: right; }
+.intro-card { align-self: center; width: min(36rem, 100%); background: var(--scrim); border: 1px solid var(--line); padding: 20px 22px; display: grid; gap: 14px; max-height: 50%; overflow-y: auto; }
+.intro-card .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.hud-bottom {
+  margin-inline: -16px; margin-bottom: calc(-14px - env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column;
+}
+.console-panel {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0 2px, rgba(0, 0, 0, 0.03) 2px 5px),
+    linear-gradient(180deg, rgba(48, 32, 20, 0.95), rgba(24, 15, 9, 0.97));
+  border-top: 1px solid var(--gold);
+  box-shadow: 0 -14px 40px rgba(0, 0, 0, 0.5);
+  padding: 14px 16px;
+}
+.level-panel { display: grid; grid-template-columns: 1fr minmax(16rem, 21rem) 1fr; gap: 14px 18px; align-items: center; }
+.console-center { display: grid; gap: 10px; }
+.listen-row, .act-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.listen-row .btn, .act-row .btn { flex: 1 1 auto; }
+.jamb { display: flex; flex-wrap: wrap; gap: 12px 10px; justify-content: center; align-content: center; min-width: 0; }
+
+/* Tirants : pommeaux de porcelaine, noms des anches en rouge comme sur les consoles françaises */
+.knob {
+  --s: 70px;
+  width: calc(var(--s) + 8px); display: flex; flex-direction: column; align-items: center;
+  background: none; border: 0; padding: 4px 0; cursor: pointer; touch-action: manipulation;
+}
+.knob-face {
+  position: relative; width: var(--s); height: var(--s); border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 7px; text-align: center;
+  background: radial-gradient(circle at 38% 30%, #fffdf7 0%, var(--porcelain) 36%, #e2d6bb 78%, #b6a681 100%);
+  box-shadow: inset 0 -2px 3px rgba(80, 60, 30, 0.35), 0 0 0 3px #1d130b, 0 0 0 5px #7b592b, 0 3px 5px rgba(0, 0, 0, 0.6);
+  transition: transform 0.18s cubic-bezier(0.3, 1.5, 0.6, 1), box-shadow 0.18s;
+}
+.knob-name { font-family: var(--f-display); font-style: italic; font-size: 11.5px; line-height: 1.02; color: var(--label-ink); overflow-wrap: normal; word-break: normal; }
+.knob-feet { font-family: var(--f-body); font-weight: 600; font-variant-numeric: lining-nums; font-size: 13px; line-height: 1; color: var(--label-ink); margin-top: 3px; }
+.knob.reed .knob-name, .knob.reed .knob-feet { color: var(--label-red); }
+.knob[aria-pressed="true"] .knob-face {
+  transform: scale(1.1);
+  box-shadow: inset 0 -2px 3px rgba(80, 60, 30, 0.35), 0 0 0 3px #1d130b, 0 0 0 6px var(--gold-hi), 0 0 22px 5px rgba(231, 200, 119, 0.42), 0 12px 16px rgba(0, 0, 0, 0.65);
+}
+.knob-rod { width: 12px; height: 0; margin-top: 2px; border-radius: 2px; background: linear-gradient(90deg, #160e08, #6b4a2e, #160e08); transition: height 0.18s; }
+.knob[aria-pressed="true"] .knob-rod { height: 9px; }
+.knob.hinted .knob-face::after { content: ""; position: absolute; top: 4px; right: 4px; width: 9px; height: 9px; border-radius: 50%; background: var(--azure-hi); box-shadow: 0 0 0 2px var(--porcelain); }
+.knob[disabled] { cursor: default; }
+
+.meter { display: grid; gap: 4px; }
+.meter-track { height: 8px; background: rgba(255, 255, 255, 0.07); border: 1px solid var(--line); overflow: hidden; }
+.meter-fill { height: 100%; width: 0; background: linear-gradient(90deg, #7d5f22, var(--gold-hi)); transition: width 0.35s; }
+.meter-label { font-size: 0.85rem; color: var(--ink-dim); display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.feedback { min-height: 1.5em; font-size: 0.97rem; text-align: center; }
+.feedback.good { color: var(--ok); }
+.feedback.warn { color: var(--warn); }
+
+/* Console libre */
+.free-panel { display: grid; gap: 12px; max-height: 58vh; overflow-y: auto; }
+.con-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { min-height: 40px; padding: 6px 12px; background: rgba(13, 10, 7, 0.5); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; display: flex; gap: 8px; align-items: center; }
+.tab[aria-selected="true"] { border-color: var(--gold-hi); background: rgba(200, 162, 76, 0.16); color: var(--porcelain); }
+.tab .count { font-size: 0.78rem; min-width: 1.6em; padding: 0 5px; border-radius: 9px; background: rgba(200, 162, 76, 0.25); text-align: center; font-variant-numeric: tabular-nums; }
+.acc-row { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.acc-group { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.acc-label { font-family: var(--f-sc); font-size: 0.78rem; letter-spacing: 0.1em; color: var(--ink-dim); margin-right: 2px; }
+.pill { min-height: 38px; min-width: 42px; padding: 4px 10px; border: 1px solid var(--line); background: rgba(43, 29, 19, 0.75); border-radius: 3px; cursor: pointer; font-size: 0.92rem; }
+.pill[aria-pressed="true"] { background: linear-gradient(180deg, #ddb862, #a9842f); color: #1c130a; border-color: #ecd393; font-weight: 600; }
+.swell { display: flex; gap: 10px; align-items: center; min-width: 14rem; flex: 1 1 14rem; max-width: 22rem; }
+.swell label { font-family: var(--f-sc); font-size: 0.78rem; letter-spacing: 0.1em; color: var(--ink-dim); white-space: nowrap; }
+.midi-status { font-size: 0.85rem; color: var(--ink-dim); }
+
+/* Clavier à l'écran */
+.kbd-dock { background: rgba(12, 9, 6, 0.97); border-top: 1px solid var(--line); padding: 8px 16px calc(10px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 6px; }
+.kbd-bar { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-dim); }
+.kbd-bar .pill { min-height: 34px; }
+.kbd { position: relative; height: clamp(84px, 15vh, 132px); touch-action: none; user-select: none; -webkit-user-select: none; }
+.kbd.pedal { height: clamp(56px, 9vh, 80px); }
+.key { position: absolute; top: 0; bottom: 0; }
+.key.white { background: linear-gradient(180deg, #e9dfc8, #fbf6ea 72%, #d9cba9); border: 1px solid #3a2a1c; border-radius: 0 0 4px 4px; }
+.key.black { bottom: auto; height: 62%; background: linear-gradient(180deg, #1c140d, #3a2a1c 86%, #120c08); border: 1px solid #000; border-radius: 0 0 3px 3px; z-index: 2; }
+.kbd.pedal .key.black { height: 55%; }
+.key.on.white { background: linear-gradient(180deg, #d9b45e, #f3d892); }
+.key.on.black { background: linear-gradient(180deg, #7d5f22, #c8a24c); }
+.key-label { position: absolute; left: 0; right: 0; bottom: 5px; text-align: center; font-size: 11px; line-height: 1.1; color: #6b5840; pointer-events: none; }
+.key.black .key-label { color: #d2bf95; bottom: 4px; font-size: 10px; }
+.key-label b { display: block; font-weight: 600; color: #3b2c1c; }
+
+/* Modale, toast */
+.modal { position: absolute; inset: 0; z-index: 20; display: grid; place-items: center; padding: 16px; background: rgba(6, 4, 3, 0.55); }
+.modal-card { width: min(36rem, 100%); max-height: 100%; overflow-y: auto; background: linear-gradient(180deg, #23170f, #140d08); border: 1px solid var(--gold); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7); padding: 24px; display: grid; gap: 14px; }
+.modal-card h3 { font-family: var(--f-display); font-weight: 400; font-size: 2rem; margin: 0; color: var(--porcelain); line-height: 1.1; text-wrap: balance; }
+.modal-card .stars { font-size: 1.5rem; }
+.fact { border-left: 2px solid var(--gold); padding-left: 14px; display: grid; gap: 4px; }
+.fact-label { font-family: var(--f-sc); letter-spacing: 0.12em; color: var(--gold); font-size: 0.8rem; }
+.reg-list { font-family: var(--f-body); font-style: italic; font-variant-numeric: lining-nums; font-size: 1.05rem; color: var(--porcelain); }
+.modal-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.toast { position: absolute; z-index: 30; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); max-width: calc(100% - 32px); background: var(--scrim); border: 1px solid var(--gold); padding: 10px 16px; font-size: 0.95rem; text-align: center; }
+
+.finale-sheet { width: min(40rem, 100%); text-align: center; display: grid; gap: 16px; justify-items: center; background: var(--scrim); border: 1px solid var(--line); padding: 30px 24px; max-height: 100%; overflow-y: auto; }
+.finale-sheet h2 { font-family: var(--f-display); font-weight: 400; font-size: clamp(2.2rem, 6vw, 3.6rem); margin: 0; color: var(--porcelain); line-height: 1; }
+.finale-sheet p { max-width: 56ch; }
+.credits { display: grid; gap: 6px; text-align: left; width: 100%; }
+.credits div { display: grid; grid-template-columns: 8.5rem 1fr; gap: 12px; border-top: 1px solid var(--line); padding-top: 6px; }
+.credits span:first-child { font-family: var(--f-body); font-variant-numeric: lining-nums; color: var(--gold); }
+.row-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+@media (max-width: 900px) {
+  .level-panel { grid-template-columns: 1fr 1fr; }
+  .level-panel .console-center { grid-column: 1 / -1; order: -1; }
+}
+@media (max-width: 560px) {
+  .knob { --s: 62px; }
+  .knob-name { font-size: 9.8px; }
+  .level-panel { grid-template-columns: 1fr; gap: 10px; }
+  .card { grid-template-columns: 1fr; gap: 4px; }
+  .slider-row { grid-template-columns: 1fr; gap: 4px; }
+  .credits div { grid-template-columns: 1fr; gap: 0; }
+  .hud-top .stars { display: none; }
+}
+@media (max-height: 640px) {
+  .knob { --s: 56px; }
+  .knob-name { font-size: 10px; }
+  .free-panel { max-height: 52vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .knob-face, .knob-rod, .meter-fill { transition: none; }
+}
+</style>
+
+<div id="app">
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <div id="veil"></div>
+
+  <section id="s-title" class="screen center" aria-label="Accueil">
+    <div class="title-block">
+      <p class="eyebrow">Saint-Germain-en-Laye · grand orgue · 1698</p>
+      <h1>Le Relevage</h1>
+      <p class="lede">Rendre sa voix au grand orgue de Saint-Germain-en-Laye</p>
+      <button class="btn btn-gold btn-lg" id="btn-enter" type="button">Entrer dans l'église</button>
+      <p class="fine">Le jeu se joue à l'oreille : prévoyez un casque ou de bonnes enceintes.</p>
+    </div>
+    <p class="colophon">Jeu de fiction, hommage à l'orgue de l'église Saint-Germain et à celles et ceux qui l'ont fait chanter.</p>
+  </section>
+
+  <section id="s-menu" class="screen center" hidden aria-label="Menu">
+    <nav class="menu">
+      <div class="menu-head">
+        <p class="eyebrow">Église Saint-Germain</p>
+        <h2>Le Relevage</h2>
+      </div>
+      <button class="menu-item" id="m-campaign" type="button"><span class="mi-name">Le relevage</span><span class="mi-sub" id="m-campaign-sub">Quatorze registrations à retrouver à l'oreille</span></button>
+      <button class="menu-item" id="m-console" type="button"><span class="mi-name">La console</span><span class="mi-sub">Les 46 jeux, trois claviers et le pédalier, en jeu libre</span></button>
+      <button class="menu-item" id="m-chronicle" type="button"><span class="mi-name">La chronique</span><span class="mi-sub" id="m-chron-sub">Trois siècles d'histoire de l'instrument</span></button>
+      <button class="menu-item" id="m-settings" type="button"><span class="mi-name">Réglages</span><span class="mi-sub">Difficulté, son, image, clavier MIDI</span></button>
+    </nav>
+  </section>
+
+  <section id="s-campaign" class="screen panel-screen" hidden aria-label="Le relevage">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="btn btn-quiet" type="button" data-nav="menu">‹ Menu</button>
+        <h2>Le relevage</h2>
+        <button class="btn btn-gold" type="button" id="btn-continue">Continuer</button>
+      </div>
+      <p class="sheet-intro">L'orgue s'est tu. Plan sonore après plan sonore, retrouvez à l'oreille la registration de chaque modèle : chaque réussite rend son éclat à une partie du buffet.</p>
+      <div id="chapters"></div>
+    </div>
+  </section>
+
+  <section id="s-level" class="screen hud" hidden aria-label="Niveau">
+    <header class="hud-top">
+      <button class="btn btn-quiet" type="button" data-nav="campaign">‹ Retour</button>
+      <div class="hud-title">
+        <p class="eyebrow" id="lv-chapter"></p>
+        <h2 id="lv-title"></h2>
+      </div>
+      <button class="btn btn-quiet" type="button" id="btn-info" aria-label="Revoir la présentation du niveau">?</button>
+    </header>
+    <div class="intro-card" id="lv-intro" role="dialog" aria-labelledby="lv-title">
+      <p id="lv-intro-text"></p>
+      <p class="fine" id="lv-intro-goal"></p>
+      <div class="actions">
+        <button class="btn btn-gold" type="button" id="btn-start">Écouter le modèle</button>
+        <button class="btn btn-quiet" type="button" id="btn-close-intro">Fermer</button>
+      </div>
+    </div>
+    <div class="hud-bottom">
+      <div class="console-panel level-panel">
+        <div class="jamb" id="jamb-left"></div>
+        <div class="console-center">
+          <div class="listen-row">
+            <button class="btn btn-gold" type="button" id="btn-model">Écouter le modèle</button>
+            <button class="btn" type="button" id="btn-mine">Ma registration</button>
+          </div>
+          <div class="meter" id="meter" hidden>
+            <div class="meter-label"><span>Ressemblance</span><span id="meter-val">0 %</span></div>
+            <div class="meter-track"><div class="meter-fill" id="meter-fill"></div></div>
+          </div>
+          <p class="feedback" id="feedback" aria-live="polite"></p>
+          <div class="act-row">
+            <button class="btn btn-quiet" type="button" id="btn-hint">Indice</button>
+            <button class="btn btn-azure" type="button" id="btn-validate">Valider</button>
+            <button class="btn btn-quiet" type="button" id="btn-kbd" aria-pressed="false">Clavier</button>
+          </div>
+        </div>
+        <div class="jamb" id="jamb-right"></div>
+      </div>
+      <div class="kbd-dock" id="lv-kbd-dock" hidden>
+        <div class="kbd-bar">
+          <button class="pill" type="button" data-oct="-1" aria-label="Octave inférieure">‹ octave</button>
+          <button class="pill" type="button" data-oct="1" aria-label="Octave supérieure">octave ›</button>
+          <span>Clavier d'ordinateur : rangée Q S D F G H J K L M, dièses sur Z E T Y U O P, flèches pour l'octave.</span>
+        </div>
+        <div class="kbd" id="lv-kbd"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-console" class="screen hud" hidden aria-label="La console">
+    <header class="hud-top">
+      <button class="btn btn-quiet" type="button" data-nav="menu">‹ Menu</button>
+      <div class="hud-title">
+        <p class="eyebrow">Jeu libre</p>
+        <h2>La console</h2>
+      </div>
+      <button class="btn btn-quiet" type="button" id="con-fold" aria-expanded="true">Replier</button>
+    </header>
+    <div class="hud-bottom">
+      <div class="console-panel free-panel" id="con-panel">
+        <div class="con-row">
+          <div class="tabs" role="tablist" id="con-tabs" aria-label="Plans sonores"></div>
+          <div class="acc-group" id="con-presets"><span class="acc-label">Registrations</span></div>
+        </div>
+        <div class="jamb" id="con-knobs" role="tabpanel"></div>
+        <div class="acc-row">
+          <div class="acc-group"><span class="acc-label">Accouplements</span>
+            <button class="pill" type="button" data-acc="c12" aria-pressed="false">I/II</button>
+            <button class="pill" type="button" data-acc="c32" aria-pressed="false">III/II</button>
+          </div>
+          <div class="acc-group"><span class="acc-label">Tirasses</span>
+            <button class="pill" type="button" data-acc="t1" aria-pressed="false">I/P</button>
+            <button class="pill" type="button" data-acc="t2" aria-pressed="false">II/P</button>
+            <button class="pill" type="button" data-acc="t3" aria-pressed="false">III/P</button>
+          </div>
+          <div class="acc-group"><span class="acc-label">Appels d'anches</span>
+            <button class="pill" type="button" data-appel="P" aria-pressed="true">I</button>
+            <button class="pill" type="button" data-appel="GO" aria-pressed="true">II</button>
+            <button class="pill" type="button" data-appel="R" aria-pressed="true">III</button>
+            <button class="pill" type="button" data-appel="Ped" aria-pressed="true">P</button>
+          </div>
+          <div class="swell"><label for="con-swell">Boîte du Récit</label><input type="range" id="con-swell" min="0" max="1" step="0.01" value="1"></div>
+        </div>
+        <div class="con-row">
+          <div class="acc-group"><span class="acc-label">Écouter</span>
+            <button class="pill" type="button" id="demo-toccata">Toccata BWV 565, début</button>
+            <button class="pill" type="button" id="demo-veni">Veni Creator sur la registration</button>
+          </div>
+          <div class="acc-group">
+            <button class="pill" type="button" id="con-midi">Brancher un clavier MIDI</button>
+            <span class="midi-status" id="con-midi-status"></span>
+          </div>
+        </div>
+      </div>
+      <div class="kbd-dock" id="con-kbd-dock">
+        <div class="kbd-bar">
+          <span class="acc-label">Clavier joué</span>
+          <button class="pill" type="button" data-man="P" aria-pressed="false">I</button>
+          <button class="pill" type="button" data-man="GO" aria-pressed="true">II</button>
+          <button class="pill" type="button" data-man="R" aria-pressed="false">III</button>
+          <button class="pill" type="button" data-oct="-1" aria-label="Octave inférieure">‹ octave</button>
+          <button class="pill" type="button" data-oct="1" aria-label="Octave supérieure">octave ›</button>
+          <button class="pill" type="button" id="con-pedal-toggle" aria-pressed="false">Pédalier</button>
+        </div>
+        <div class="kbd" id="con-kbd"></div>
+        <div class="kbd pedal" id="con-pedal" hidden></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-chronicle" class="screen panel-screen" hidden aria-label="La chronique">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="btn btn-quiet" type="button" data-nav="menu">‹ Menu</button>
+        <h2>La chronique</h2>
+      </div>
+      <p class="sheet-intro">L'histoire de l'orgue de Saint-Germain-en-Laye. Chaque chapitre du relevage achevé dévoile une page.</p>
+      <div class="cards" id="cards"></div>
+    </div>
+  </section>
+
+  <section id="s-settings" class="screen panel-screen" hidden aria-label="Réglages">
+    <div class="sheet">
+      <div class="sheet-head">
+        <button class="btn btn-quiet" type="button" data-nav="menu">‹ Menu</button>
+        <h2>Réglages</h2>
+      </div>
+      <div class="settings">
+        <div class="set-group">
+          <h3>Difficulté</h3>
+          <label class="choice"><input type="radio" name="diff" id="diff-maitre" value="maitre"><span>Maître<small>Seul le nombre de jeux justes est donné. Pour l'organiste.</small></span></label>
+          <label class="choice"><input type="radio" name="diff" id="diff-apprenti" value="apprenti"><span>Apprenti<small>Une jauge de ressemblance et des indices par famille de jeux.</small></span></label>
+        </div>
+        <div class="set-group">
+          <h3>Son</h3>
+          <div class="slider-row"><label for="set-volume">Volume</label><input type="range" id="set-volume" min="0" max="1" step="0.01"></div>
+          <div class="slider-row"><label for="set-reverb">Acoustique de l'église</label><input type="range" id="set-reverb" min="0" max="1" step="0.01"></div>
+        </div>
+        <div class="set-group">
+          <h3>Image</h3>
+          <label class="choice"><input type="radio" name="quality" id="q-auto" value="auto"><span>Automatique</span></label>
+          <label class="choice"><input type="radio" name="quality" id="q-high" value="high"><span>Haute<small>Halo lumineux sur les dorures et les vitraux.</small></span></label>
+          <label class="choice"><input type="radio" name="quality" id="q-light" value="light"><span>Légère<small>Pour les tablettes et les ordinateurs modestes.</small></span></label>
+        </div>
+        <div class="set-group">
+          <h3>Clavier MIDI</h3>
+          <p class="fine">Un clavier MIDI se branche dans Chrome ou Edge sur ordinateur. Canal 1 : clavier en cours. Canaux 2 à 5 : Positif, Grand-Orgue, Récit, Pédale. La pédale d'expression (CC 11) commande la boîte du Récit.</p>
+          <div class="acc-group"><button class="btn" type="button" id="set-midi">Brancher un clavier MIDI</button><span class="midi-status" id="set-midi-status"></span></div>
+        </div>
+        <div class="set-group">
+          <h3>Clavier d'ordinateur</h3>
+          <div class="keys-help">
+            <span><kbd>Q</kbd> à <kbd>M</kbd></span><span>notes naturelles (do, ré, mi…), dièses sur la rangée <kbd>Z</kbd> <kbd>E</kbd> <kbd>T</kbd> <kbd>Y</kbd> <kbd>U</kbd> <kbd>O</kbd> <kbd>P</kbd></span>
+            <span><kbd>W</kbd> à <kbd>;</kbd></span><span>pédalier (notes naturelles), dans la console</span>
+            <span><kbd>←</kbd> <kbd>→</kbd></span><span>changer d'octave</span>
+            <span><kbd>&amp;</kbd> <kbd>é</kbd> <kbd>"</kbd></span><span>choisir le clavier I, II ou III dans la console</span>
+          </div>
+        </div>
+        <div class="set-group">
+          <h3>Progression</h3>
+          <div class="acc-group"><button class="btn" type="button" id="set-reset">Effacer la progression</button><span class="fine" id="set-reset-msg"></span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="s-finale" class="screen center" hidden aria-label="L'inauguration">
+    <div class="finale-sheet" id="finale-intro">
+      <p class="eyebrow">Le relevage est achevé</p>
+      <h2>L'inauguration</h2>
+      <p>Positif de dos, Grand-Orgue, Récit expressif, Pédale : les quatre plans sonores ont retrouvé leur voix. Il reste à faire sonner l'orgue tout entier.</p>
+      <button class="btn btn-gold btn-lg" type="button" id="btn-tutti">Faire sonner le tutti</button>
+    </div>
+    <div class="finale-sheet" id="finale-credits" hidden>
+      <p class="eyebrow">En hommage</p>
+      <h2>Le grand orgue de Saint-Germain-en-Laye</h2>
+      <div class="credits">
+        <div><span>1698</span><span>Alexandre Thierry, sur commande de Louis XIV</span></div>
+        <div><span>1709</span><span>François Thierry, quarante jeux</span></div>
+        <div><span>1827</span><span>Louis-Paul Dallery, transfert dans l'église actuelle</span></div>
+        <div><span>1852 · 1888</span><span>Aristide Cavaillé-Coll</span></div>
+        <div><span>1903</span><span>Charles Mutin</span></div>
+        <div><span>1967</span><span>Haerpfer-Erman, Positif de dos remis en service</span></div>
+        <div><span>Titulaires</span><span>Albert Alain (1924-1971), Marie-Claire Alain (1971-2010), Hubert Haye (à partir de 2010)</span></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-gold" type="button" id="fin-console">Ouvrir la console</button>
+        <button class="btn" type="button" id="fin-again">Réécouter</button>
+        <button class="btn btn-quiet" type="button" data-nav="menu">Menu</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="modal" id="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <p class="eyebrow" id="modal-eyebrow"></p>
+      <h3 id="modal-title"></h3>
+      <div id="modal-body" style="display:grid;gap:14px"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" hidden></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+/* =========================================================================
+   Le Relevage : jeu autour du grand orgue de Saint-Germain-en-Laye.
+   Son entièrement synthétisé (Web Audio), scène three.js procédurale.
+   ========================================================================= */
+
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+const mtof = n => 440 * Math.pow(2, (n - 69) / 12);
+const isBlack = n => [1, 3, 6, 8, 10].includes(((n % 12) + 12) % 12);
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const COARSE = matchMedia('(pointer: coarse)').matches;
+
+function nn(name) {
+  const m = /^([A-G])(#|b)?(-?\d)$/.exec(name);
+  if (!m) throw new Error('Note invalide ' + name);
+  const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+  return (parseInt(m[3], 10) + 1) * 12 + base;
+}
+// "G4:1 A4:.5 D3+F3+A3:2 r:1" -> événements en secondes
+function seq(str, bpm = 84, transpose = 0) {
+  const beat = 60 / bpm; let t = 0; const events = [];
+  for (const tok of str.trim().split(/\s+/)) {
+    const [p, d] = tok.split(':'); const dur = parseFloat(d) * beat;
+    if (p !== 'r') events.push({ t, d: dur, n: p.split('+').map(x => nn(x) + transpose) });
+    t += dur;
+  }
+  return { events, length: t };
+}
+
+/* ================================ DONNÉES ================================ */
+
+const DIVS = {
+  P:   { id: 'P',   name: 'Positif de dos',  short: 'Positif',     roman: 'I',   low: 36, high: 91 },
+  GO:  { id: 'GO',  name: 'Grand-Orgue',     short: 'Grand-Orgue', roman: 'II',  low: 36, high: 91 },
+  R:   { id: 'R',   name: 'Récit expressif', short: 'Récit',       roman: 'III', low: 36, high: 91 },
+  Ped: { id: 'Ped', name: 'Pédale',          short: 'Pédale',      roman: 'P',   low: 36, high: 65 },
+};
+const DIV_ORDER = ['P', 'GO', 'R', 'Ped'];
+const REEDS = new Set(['trompette', 'bombarde', 'basson', 'hautbois', 'cromorne', 'voixhumaine']);
+
+function S(div, key, name, label, o) {
+  const reed = REEDS.has(o.t);
+  return { id: div + '.' + key, div, key, name, label, ...o, reed, fam: o.fam || (reed ? 'anche' : (o.mix || o.cornet) ? 'mixture' : 'fond') };
+}
+
+// Composition réelle : inventaire des orgues, 46 jeux
+const STOPS = [
+  S('P', 'bourdon8', 'Bourdon', '8', { t: 'bourdon', f: 8, g: 0.5 }),
+  S('P', 'prestant4', 'Prestant', '4', { t: 'principal', f: 4, g: 0.42 }),
+  S('P', 'cheminee4', 'Flûte à cheminée', '4', { t: 'cheminee', f: 4, g: 0.36 }),
+  S('P', 'nazard', 'Nazard', '2 ⅔', { t: 'mutation', f: 8 / 3, g: 0.3, fam: 'mutation' }),
+  S('P', 'quarte', 'Quarte de Nazard', '2', { t: 'mutation', f: 2, g: 0.27 }),
+  S('P', 'tierce', 'Tierce', '1 ⅗', { t: 'mutation', f: 1.6, g: 0.26, fam: 'mutation' }),
+  S('P', 'larigot', 'Larigot', '1 ⅓', { t: 'mutation', f: 4 / 3, g: 0.21, fam: 'mutation' }),
+  S('P', 'fourniture', 'Fourniture', 'V', { mix: [2, 4 / 3, 1, 2 / 3, 1 / 2], ceil: 1700, g: 0.14 }),
+  S('P', 'trompette8', 'Trompette', '8', { t: 'trompette', f: 8, g: 0.5 }),
+  S('P', 'cromorne8', 'Cromorne', '8', { t: 'cromorne', f: 8, g: 0.44 }),
+
+  S('GO', 'bourdon16', 'Bourdon', '16', { t: 'bourdon', f: 16, g: 0.42 }),
+  S('GO', 'montre8', 'Montre', '8', { t: 'montre', f: 8, g: 0.6 }),
+  S('GO', 'bourdon8', 'Bourdon', '8', { t: 'bourdon', f: 8, g: 0.46 }),
+  S('GO', 'fluteharm8', 'Flûte harmonique', '8', { t: 'harmonique', f: 8, g: 0.52, knob: 'Flûte harmon.' }),
+  S('GO', 'salicional8', 'Salicional', '8', { t: 'salicional', f: 8, g: 0.3 }),
+  S('GO', 'prestant4', 'Prestant', '4', { t: 'principal', f: 4, g: 0.42 }),
+  S('GO', 'octaviante4', 'Flûte octaviante', '4', { t: 'octaviante', f: 4, g: 0.36, knob: 'Flûte octav.' }),
+  S('GO', 'doublette2', 'Doublette', '2', { t: 'principal', f: 2, g: 0.32 }),
+  S('GO', 'fourniture', 'Fourniture', 'IV', { mix: [2, 4 / 3, 1, 2 / 3], ceil: 1800, g: 0.14 }),
+  S('GO', 'cymbale', 'Cymbale', 'IV', { mix: [1, 2 / 3, 1 / 2, 1 / 3], ceil: 2600, g: 0.1 }),
+  S('GO', 'bombarde16', 'Bombarde', '16', { t: 'bombarde', f: 16, g: 0.5 }),
+  S('GO', 'trompette8', 'Trompette', '8', { t: 'trompette', f: 8, g: 0.55 }),
+  S('GO', 'clairon4', 'Clairon', '4', { t: 'trompette', f: 4, g: 0.42 }),
+
+  S('R', 'quintaton16', 'Quintaton', '16', { t: 'quintaton', f: 16, g: 0.32 }),
+  S('R', 'principal8', 'Petit principal', '8', { t: 'principal', f: 8, g: 0.4 }),
+  S('R', 'cordenuit8', 'Cor de nuit', '8', { t: 'cordenuit', f: 8, g: 0.44 }),
+  S('R', 'gambe8', 'Gambe', '8', { t: 'gambe', f: 8, g: 0.32 }),
+  S('R', 'celeste8', 'Voix céleste', '8', { t: 'gambe', f: 8, g: 0.29, celeste: true }),
+  S('R', 'prestant4', 'Prestant', '4', { t: 'principal', f: 4, g: 0.36 }),
+  S('R', 'salicet4', 'Salicet', '4', { t: 'salicional', f: 4, g: 0.25 }),
+  S('R', 'doublette2', 'Doublette', '2', { t: 'principal', f: 2, g: 0.28 }),
+  S('R', 'cornet', 'Cornet', 'V', { cornet: true, g: 0.27 }),
+  S('R', 'fourniture', 'Fourniture', 'IV', { mix: [2, 4 / 3, 1, 2 / 3], ceil: 1800, g: 0.12 }),
+  S('R', 'basson16', 'Basson', '16', { t: 'basson', f: 16, g: 0.4 }),
+  S('R', 'trompette8', 'Trompette', '8', { t: 'trompette', f: 8, g: 0.48 }),
+  S('R', 'hautbois8', 'Hautbois', '8', { t: 'hautbois', f: 8, g: 0.4 }),
+  S('R', 'voixhumaine8', 'Voix humaine', '8', { t: 'voixhumaine', f: 8, g: 0.34 }),
+  S('R', 'clairon4', 'Clairon', '4', { t: 'trompette', f: 4, g: 0.38 }),
+
+  S('Ped', 'flute16', 'Flûte', '16', { t: 'flute', f: 16, g: 0.55 }),
+  S('Ped', 'soubasse16', 'Soubasse', '16', { t: 'bourdon', f: 16, g: 0.66 }),
+  S('Ped', 'flute8', 'Flûte', '8', { t: 'flute', f: 8, g: 0.5 }),
+  S('Ped', 'bourdon8', 'Bourdon', '8', { t: 'bourdon', f: 8, g: 0.42 }),
+  S('Ped', 'flute4', 'Flûte', '4', { t: 'flute', f: 4, g: 0.4 }),
+  S('Ped', 'bombarde16', 'Bombarde', '16', { t: 'bombarde', f: 16, g: 0.66 }),
+  S('Ped', 'trompette8', 'Trompette', '8', { t: 'trompette', f: 8, g: 0.55 }),
+  S('Ped', 'clairon4', 'Clairon', '4', { t: 'trompette', f: 4, g: 0.42 }),
+];
+const STOP = Object.fromEntries(STOPS.map(s => [s.id, s]));
+const stopsOf = div => STOPS.filter(s => s.div === div);
+
+// Le fil rouge : Veni Creator Spiritus, mode 8 (GregoBase, chant 2923)
+const VENI = [
+  'G3:1 A3:1 G3:.5 F3:.5 G3:1 A3:.5 G3:.5 C4:1.3 D4:1 C4:2',
+  'C4:1 G3:1.3 A3:1 C4:1 D4:.5 C4:.5 D4:1.3 E4:1 D4:2',
+  'C4:1 D4:.5 E4:.5 C4:.5 B3:.5 A3:.5 G3:.5 C4:.5 D4:.5 G3:1.3 A3:1 C4:2',
+  'B3:.5 C4:.5 A3:1 G3:.5 F3:.5 A3:1 A3:.5 B3:.5 A3:.5 G3:1.3 F3:1 G3:2',
+];
+const PH = {
+  v: (i, tr) => seq(VENI[i], 84, tr),
+  fonds8: () => seq('C3+G3+C4+E4:2 A2+F3+C4+F4:1.5 G2+F3+B3+D4:1.5 C3+E3+C4:3', 56),
+  plein: () => seq('D3+F3+A3+D4:2 G2+G3+Bb3+D4:1.25 A2+E3+A3+C#4:1.25 D3+F3+A3+D4:3', 56),
+  celeste: () => seq('F3+A3+C4+F4:3 E3+G3+C4+G4:3 F3+A3+C4+F4:4', 52),
+};
+
+const CHAPTERS = [
+  { div: 'P', roman: 'I', title: 'Le Positif de dos', era: 'Thierry, 1698', card: 'c1' },
+  { div: 'GO', roman: 'II', title: 'Le Grand-Orgue', era: 'Cavaillé-Coll, 1852', card: 'c2' },
+  { div: 'R', roman: 'III', title: 'Le Récit expressif', era: 'Mutin, 1903', card: 'c3' },
+  { div: 'Ped', roman: 'IV', title: 'La Pédale', era: 'Haerpfer-Erman, 1967', card: 'c4' },
+];
+
+const LEVELS = [
+  { id: 'souffle', ch: 0, title: 'Premier souffle', target: ['P.bourdon8'], phrase: () => PH.v(0, 12),
+    intro: "Le relevage commence par le plan le plus ancien, le Positif de dos : le petit buffet accroché à la balustrade, dans le dos de l'organiste. Un seul jeu parle dans le modèle. Écoutez, puis tirez le bon tirant.",
+    fact: "Le Bourdon est un tuyau bouché : un tampon ferme son extrémité. Il sonne une octave plus bas qu'un tuyau ouvert de même longueur, avec un timbre rond où dominent les harmoniques impaires. Un Bourdon de 8 pieds ne mesure donc qu'environ 4 pieds." },
+  { id: 'fondsdoux', ch: 0, title: 'Fonds doux', target: ['P.bourdon8', 'P.cheminee4'], phrase: () => PH.v(1, 12),
+    intro: "Deux jeux cette fois. Le second sonne une octave au-dessus du premier : c'est un 4 pieds. Les pieds indiquent la hauteur, en référence au tuyau ouvert d'environ 8 pieds qui donne le do grave du clavier.",
+    fact: "La Flûte à cheminée est à demi bouchée : un petit tube traverse sa calotte. Son timbre se place entre la rondeur du bourdon et la clarté d'une flûte ouverte." },
+  { id: 'nazard', ch: 0, title: 'Récit de Nazard', target: ['P.bourdon8', 'P.cheminee4', 'P.nazard'], phrase: () => PH.v(2, 12),
+    intro: "Un jeu de mutation s'ajoute aux fonds doux. Il ne sonne pas à l'octave de la note jouée, mais à la quinte. Le Récit de Nazard est une couleur chère aux maîtres du Grand Siècle.",
+    fact: "Le Nazard sonne à la douzième, une octave et une quinte au-dessus de la note jouée. On ne l'entend pas comme une note séparée : il se fond dans le son et lui donne un relief nasal. Clérambault lui consacre un Récit de Nazard dans sa Suite du deuxième ton." },
+  { id: 'tierce', ch: 0, title: 'Tierce en taille', target: ['P.bourdon8', 'P.prestant4', 'P.nazard', 'P.quarte', 'P.tierce'], phrase: () => PH.v(0, 0),
+    intro: "Voici le jeu de tierce, couleur reine de l'orgue classique français. Cinq jeux le composent. Le chant est confié à la taille, la voix de ténor.",
+    fact: "La Tierce sonne deux octaves et une tierce au-dessus de la note. Avec le Nazard et la Quarte, elle forme un Cornet décomposé. La Tierce en taille est l'un des sommets expressifs des messes de Couperin et de Grigny." },
+  { id: 'cromorne', ch: 0, title: 'Cromorne en taille', target: ['P.cromorne8', 'P.bourdon8', 'P.prestant4'], phrase: () => PH.v(3, 0),
+    intro: "Première anche du relevage. Elle chante elle aussi en taille, soutenue comme le veut l'usage par un bourdon et un prestant.",
+    fact: "Le Cromorne a un résonateur cylindrique. Comme la clarinette, il favorise les harmoniques impaires, d'où son timbre boisé et un peu nasillard. Grigny écrit un Récit de Cromorne dans son Veni Creator, publié en 1699." },
+
+  { id: 'fonds8', ch: 1, title: 'Fonds de 8', target: ['GO.montre8', 'GO.bourdon8', 'GO.fluteharm8', 'GO.salicional8'], phrase: PH.fonds8,
+    intro: "Le Grand-Orgue porte la marque de Cavaillé-Coll. On commence par les fonds de 8 pieds, la base du son romantique français : quatre jeux de même hauteur, à reconnaître par leur couleur.",
+    fact: "La Flûte harmonique est une invention de Cavaillé-Coll : un tuyau de double longueur, percé d'un petit trou à mi-hauteur, qui sonne à l'octave. Son timbre est plein et rond. La Montre est le principal de 8 pieds dont les tuyaux forment la façade." },
+  { id: 'pleinjeu', ch: 1, title: 'Plein-jeu', target: ['GO.bourdon16', 'GO.montre8', 'GO.bourdon8', 'GO.prestant4', 'GO.doublette2', 'GO.fourniture', 'GO.cymbale'], phrase: PH.plein,
+    intro: "Le Plein-jeu réunit les principaux et les mixtures, sur une base de 16 pieds. Sept jeux. Les accords révèlent sa grandeur.",
+    fact: "Fourniture et Cymbale font parler plusieurs rangs aigus par note. Ces rangs reprennent à l'octave inférieure en montant le clavier, si bien que l'aigu reste brillant sans devenir criard. C'est la couronne de l'orgue classique." },
+  { id: 'bassetrompette', ch: 1, title: 'Basse de trompette', target: ['GO.trompette8', 'GO.bourdon8', 'GO.prestant4'], phrase: () => PH.v(1, -12),
+    intro: "Une anche éclatante, soutenue par un bourdon et un prestant. Le chant passe à la main gauche, comme dans les Basses de trompette des livres d'orgue classiques.",
+    fact: "Cavaillé-Coll a donné aux anches une puissance nouvelle : vent plus fort et, dans l'aigu, résonateurs de longueur double dits harmoniques. Bombarde, Trompette et Clairon forment la batterie d'anches du Grand-Orgue." },
+
+  { id: 'celeste', ch: 2, title: 'Voix céleste', target: ['R.gambe8', 'R.celeste8'], phrase: PH.celeste,
+    intro: "Le Récit est enfermé dans une boîte expressive. On commence par la couleur la plus romantique qui soit : deux jeux de gambe, dont l'un est volontairement désaccordé.",
+    fact: "La Voix céleste est accordée un peu à côté de la Gambe. Jouées ensemble, elles produisent une ondulation lente, comme un frémissement. On la joue de préférence boîte fermée, dans les pièces calmes." },
+  { id: 'cornet', ch: 2, title: 'Récit de Cornet', target: ['R.cornet'], phrase: () => PH.v(0, 12),
+    intro: "Un seul tirant, mais cinq rangs de tuyaux. Ce jeu ne parle qu'au dessus du clavier, à partir du do du milieu.",
+    fact: "Le Cornet réunit cinq rangs : 8, 4, 2 2/3, 2 et 1 3/5 pieds. Au XVIIIe siècle, il chantait les récits les plus ornés. Celui de Saint-Germain-en-Laye fait partie des jeux du XVIIIe siècle conservés dans l'instrument." },
+  { id: 'voixhumaine', ch: 2, title: 'Voix humaine', target: ['R.voixhumaine8', 'R.cordenuit8', 'R.prestant4'], phrase: () => PH.v(1, 0),
+    intro: "Une anche à résonateur très court, qui imite de loin la voix chantée. On l'accompagne d'un bourdon et d'un prestant : ici, le Cor de nuit tient le rôle du bourdon.",
+    fact: "La Voix humaine de Saint-Germain-en-Laye compte, avec le Cornet, parmi les jeux du XVIIIe siècle encore en place. Les classiques la jouaient avec le Tremblant doux pour animer le son." },
+  { id: 'hautbois', ch: 2, title: 'Hautbois', target: ['R.hautbois8', 'R.cordenuit8', 'R.gambe8'], phrase: () => PH.v(2, 12), swell: [[0, 0.05], [2.4, 1], [5.2, 0.12]],
+    intro: "Dernier jeu du Récit. Dans le modèle, la boîte expressive s'ouvre puis se referme : écoutez la nuance, et retrouvez les trois jeux.",
+    fact: "Les jalousies de la boîte expressive s'ouvrent et se ferment au moyen d'une pédale. Le Récit peut ainsi enfler et diminuer : c'est l'outil de la nuance romantique, et le Hautbois y chante comme un instrument d'orchestre." },
+
+  { id: 'fondations', ch: 3, title: 'Les fondations', target: ['Ped.soubasse16', 'Ped.flute8'], phrase: () => PH.v(0, -12),
+    intro: "La Pédale soutient tout l'édifice. Deux jeux suffisent ici : un 16 pieds et un 8 pieds. Le Veni Creator passe aux pieds.",
+    fact: "La Soubasse est un bourdon de 16 pieds : le socle grave sur lequel repose le son. Les Flûtes 8 et 4 de la Pédale font partie des jeux du XVIIIe siècle encore en place." },
+  { id: 'anchesped', ch: 3, title: 'Anches de pédale', target: ['Ped.bombarde16', 'Ped.trompette8', 'Ped.clairon4'], phrase: () => PH.v(3, -12),
+    intro: "Dernier niveau. Le plain-chant éclate à la pédale, porté par la batterie d'anches : 16, 8 et 4 pieds.",
+    fact: "Confier le plain-chant aux anches de pédale, sous le plein-jeu des claviers, est un usage de l'orgue français. Le chant liturgique reste ainsi audible au cœur de la polyphonie." },
+];
+
+for (const l of LEVELS) l.div = CHAPTERS[l.ch].div;
+
+const CHRONICLE = [
+  { id: 'c0', year: '1698', title: 'Une commande royale', unlock: 'start',
+    text: "Louis XIV, né au château de Saint-Germain-en-Laye, commande un orgue au facteur parisien Alexandre Thierry pour l'église de la ville. Le buffet que l'on admire aujourd'hui à la tribune remonte à cet instrument." },
+  { id: 'cv', year: '1699', title: 'Le fil du Veni Creator', unlock: 'start',
+    text: "Toutes les phrases de ce jeu viennent de l'hymne Veni Creator Spiritus, en huitième mode. En 1699, un an après la commande de l'orgue, Nicolas de Grigny publie son Premier livre d'orgue, où il traite ce même Veni Creator en taille, en fugue, en duo, en récit de cromorne et en dialogue sur les grands jeux." },
+  { id: 'c1', year: '1709 · 1827', title: 'Quarante jeux, puis une nouvelle église', unlock: 0,
+    text: "En 1709, François Thierry agrandit l'instrument jusqu'à quarante jeux. En 1827, Louis-Paul Dallery le transfère dans l'église actuelle, au décor néoclassique inspiré des basiliques paléochrétiennes." },
+  { id: 'c2', year: '1852 · 1888', title: 'Aristide Cavaillé-Coll', unlock: 1,
+    text: "Le plus grand facteur du XIXe siècle reconstruit l'orgue en 1852 en conservant les jeux anciens récupérables, puis y revient en 1888. Une bonne part du Grand-Orgue et les anches de 8 pieds du Récit portent sa marque." },
+  { id: 'c3', year: '1903', title: 'Charles Mutin', unlock: 2,
+    text: "Successeur de Cavaillé-Coll, Charles Mutin reconstruit entièrement l'instrument en 1903. La plupart des jeux de fond actuels sont de sa main." },
+  { id: 'c4', year: '1967', title: 'Haerpfer-Erman', unlock: 3,
+    text: "La restauration de 1967 donne à l'orgue une couleur néoclassique : nouvelles mutations et mixtures, et le Positif de dos remis en service. Le buffet est classé monument historique depuis 1930, la partie instrumentale depuis 1975." },
+  { id: 'c5', year: '1924 · 2010', title: 'Les titulaires', unlock: 'finale',
+    text: "Albert Alain, organiste et compositeur, tient l'orgue de 1924 à 1971. Sa fille Marie-Claire Alain, l'une des grandes organistes du XXe siècle, lui succède de 1971 à 2010. Hubert Haye devient titulaire en 2010." },
+];
+
+const PRESETS = [
+  { id: 'fonds', label: 'Fonds de 8', stops: ['GO.montre8', 'GO.bourdon8', 'GO.fluteharm8', 'GO.salicional8', 'R.principal8', 'R.cordenuit8', 'R.gambe8', 'P.bourdon8', 'Ped.soubasse16', 'Ped.flute8'], acc: { c12: true, c32: true, t2: true } },
+  { id: 'plein', label: 'Plein-jeu', stops: ['GO.bourdon16', 'GO.montre8', 'GO.bourdon8', 'GO.prestant4', 'GO.doublette2', 'GO.fourniture', 'GO.cymbale', 'P.bourdon8', 'P.prestant4', 'P.fourniture', 'Ped.flute16', 'Ped.flute8', 'Ped.flute4'], acc: { c12: true, t2: true } },
+  { id: 'grandjeu', label: 'Grand jeu', stops: ['GO.bourdon8', 'GO.prestant4', 'GO.trompette8', 'GO.clairon4', 'P.bourdon8', 'P.prestant4', 'P.nazard', 'P.tierce', 'P.trompette8', 'P.cromorne8', 'R.cornet', 'R.trompette8', 'Ped.flute8', 'Ped.flute4', 'Ped.trompette8', 'Ped.clairon4'], acc: { c12: true } },
+  { id: 'tierce', label: 'Jeu de tierce', stops: ['P.bourdon8', 'P.prestant4', 'P.nazard', 'P.quarte', 'P.tierce', 'GO.bourdon8', 'GO.salicional8', 'Ped.soubasse16', 'Ped.flute8'], acc: {} },
+  { id: 'tutti', label: 'Tutti', stops: STOPS.filter(s => !['R.celeste8', 'R.voixhumaine8'].includes(s.id)).map(s => s.id), acc: { c12: true, c32: true, t1: true, t2: true, t3: true } },
+];
+
+function toccata() {
+  const ev = [];
+  const P = (t, d, names, div = 'GO') => ev.push({ t, d, n: names.map(nn), div });
+  let t = 0;
+  for (const [o, dbl] of [[5, false], [4, false], [3, true]]) {
+    const N = x => (dbl ? [x + o, x + (o - 1)] : [x + o]);
+    P(t, 0.075, N('A')); P(t + 0.075, 0.075, N('G')); P(t + 0.15, 0.85, N('A'));
+    let u = t + 1.3;
+    for (const x of ['G', 'F', 'E', 'D']) { P(u, 0.075, N(x)); u += 0.075; }
+    P(u, 0.5, N('C#')); u += 0.5;
+    P(u, dbl ? 1.0 : 1.8, N('D'));
+    t = u + (dbl ? 1.0 : 2.3);
+  }
+  P(t, 5.6, ['D2'], 'Ped');
+  ['C#3', 'E3', 'G3', 'Bb3', 'C#4', 'E4'].forEach((x, i) => P(t + 0.16 * i, 2.5 - 0.16 * i, [x]));
+  P(t + 2.6, 3.0, ['D3', 'F#3', 'A3', 'D4']);
+  return { events: ev, length: t + 5.8 };
+}
+
+/* ============================== SAUVEGARDE =============================== */
+
+const SAVE_KEY = 'le-relevage.v1';
+const save = { stars: {}, difficulty: 'maitre', quality: 'auto', volume: 0.8, reverb: 0.55, finale: false };
+try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (s && typeof s === 'object') Object.assign(save, s); } catch (e) { /* stockage indisponible */ }
+function persist() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { /* stockage indisponible */ } }
+const levelDone = i => !!save.stars[LEVELS[i].id];
+const chapterLevels = ch => LEVELS.map((l, i) => ({ l, i })).filter(x => x.l.ch === ch);
+const chapterDone = ch => chapterLevels(ch).every(x => levelDone(x.i));
+const chapterProgress = ch => { const ls = chapterLevels(ch); return ls.filter(x => levelDone(x.i)).length / ls.length; };
+const levelUnlocked = i => i === 0 || levelDone(i - 1);
+const cardUnlocked = c => c.unlock === 'start' || (c.unlock === 'finale' ? save.finale : chapterDone(c.unlock));
+
+/* ============================== MOTEUR SONORE ============================ */
+
+const NB = 256;
+const LOUD = 0.105;
+const PHASES = (() => { const a = new Float32Array(NB + 1); let s = 987654; for (let i = 0; i <= NB; i++) { s = (s * 16807) % 2147483647; a[i] = (s / 2147483647) * Math.PI * 2; } return a; })();
+const gen = (n, fn) => Array.from({ length: n }, (_, i) => fn(i + 1));
+const TIMBRES = {
+  principal: [1, 0.5, 0.32, 0.2, 0.14, 0.1, 0.075, 0.055, 0.042, 0.032, 0.025, 0.02, 0.015, 0.012],
+  montre: [1, 0.56, 0.37, 0.25, 0.17, 0.12, 0.09, 0.066, 0.05, 0.038, 0.03, 0.024, 0.018, 0.014, 0.011, 0.009],
+  bourdon: [1, 0.05, 0.24, 0.03, 0.09, 0.02, 0.035, 0.01, 0.015],
+  cordenuit: [1, 0.07, 0.14, 0.04, 0.05, 0.02],
+  quintaton: [1, 0.05, 0.52, 0.04, 0.14, 0.02, 0.05],
+  cheminee: [1, 0.14, 0.2, 0.06, 0.07, 0.02, 0.02],
+  flute: [1, 0.24, 0.1, 0.05, 0.025, 0.012],
+  harmonique: [1, 0.3, 0.12, 0.07, 0.035, 0.02],
+  octaviante: [1, 0.26, 0.1, 0.05, 0.03],
+  mutation: [1, 0.1, 0.12, 0.03, 0.03],
+  gambe: gen(22, k => (k === 1 ? 0.55 : 0.7 / Math.pow(k, 0.55))),
+  salicional: gen(14, k => (k === 1 ? 0.8 : 0.75 / Math.pow(k, 0.8))),
+  mixrank: [1, 0.35, 0.15, 0.07],
+  trompette: gen(40, k => (k === 1 ? 0.8 : 1) / Math.pow(k, 0.7)),
+  bombarde: gen(40, k => 1 / Math.pow(k, 0.65)),
+  basson: gen(32, k => (k === 1 ? 0.7 : 1) / Math.pow(k, 0.85)),
+  hautbois: gen(32, k => (k === 1 ? 0.35 : k === 2 ? 0.7 : 0.9 / Math.pow(k, 0.6))),
+  cromorne: gen(32, k => (k % 2 ? 1 / Math.pow(k, 0.55) : 0.08 / k)),
+  voixhumaine: gen(24, k => (k === 1 ? 0.5 : 1 / Math.pow(k, 0.45))),
+};
+const FORMANTS = {
+  trompette: [[1500, 0.8, 1.2], [3000, 0.6, 0.5]],
+  bombarde: [[900, 0.8, 1.0]],
+  basson: [[700, 0.7, 1.2], [2400, 0.6, 0.6]],
+  hautbois: [[1100, 0.5, 2.5], [2600, 0.5, 1.2]],
+  cromorne: [[1400, 0.6, 0.8]],
+  voixhumaine: [[650, 0.35, 2.5], [1100, 0.35, 1.6], [2500, 0.4, 1.2]],
+};
+const CHIFF = { principal: 0.05, montre: 0.05, flute: 0.08, harmonique: 0.06, octaviante: 0.06, cheminee: 0.06, bourdon: 0.04, cordenuit: 0.04, quintaton: 0.04, mutation: 0.05, gambe: 0.03, salicional: 0.03 };
+const CORNET = [{ f: 8, t: 'bourdon' }, { f: 4, t: 'flute' }, { f: 8 / 3, t: 'mutation' }, { f: 2, t: 'flute' }, { f: 1.6, t: 'mutation' }];
+const GROUPS = ['A', 'B', 'R', 'C'];
+
+function formantGain(t, f) {
+  const fs = FORMANTS[t]; if (!fs) return 1;
+  let g = 1; for (const [fc, w, a] of fs) { const x = Math.log2(f / fc) / w; g += a * Math.exp(-0.5 * x * x); }
+  return g;
+}
+function addPartials(arr, timbre, m, f16, gain, nyq, reedT) {
+  const tb = TIMBRES[timbre];
+  for (let k = 1; k <= tb.length; k++) {
+    const bin = m * k; if (bin > NB) break;
+    const f = bin * f16; if (f > nyq) break;
+    let a = gain * tb[k - 1];
+    a *= reedT ? Math.exp(-f / 5500) * formantGain(reedT, f) : Math.exp(-f / 9000);
+    arr[bin] = Math.sqrt(arr[bin] * arr[bin] + a * a);
+  }
+}
+// Spectre d'une note pour une registration, en harmoniques du 16 pieds
+function computeSpec(stops, note, sr = 44100) {
+  const f16 = mtof(note) / 2, nyq = Math.min(sr * 0.45, 14000);
+  const out = { A: new Float32Array(NB + 1), B: new Float32Array(NB + 1), R: new Float32Array(NB + 1), C: new Float32Array(NB + 1), chiff: 0, low: clamp((60 - note) / 24, 0, 1) };
+  let flip = 0;
+  for (const s of stops) {
+    if (s.cornet && note < 60) continue;
+    if (s.mix || s.cornet) {
+      const ranks = s.cornet ? CORNET : s.mix.map(f => ({ f, t: 'mixrank' }));
+      for (const rk of ranks) {
+        let m = Math.round(16 / rk.f);
+        if (s.mix) while (m * f16 > s.ceil && m % 2 === 0) m /= 2;
+        addPartials((flip++ & 1) ? out.B : out.A, rk.t, m, f16, s.g, nyq);
+      }
+      out.chiff = Math.max(out.chiff, 0.03);
+    } else if (s.reed) {
+      addPartials(out.R, s.t, Math.round(16 / s.f), f16, s.g, nyq, s.t);
+    } else if (s.celeste) {
+      addPartials(out.C, s.t, Math.round(16 / s.f), f16, s.g, nyq);
+    } else {
+      addPartials((flip++ & 1) ? out.B : out.A, s.t, Math.round(16 / s.f), f16, s.g, nyq);
+      out.chiff = Math.max(out.chiff, CHIFF[s.t] || 0.03);
+    }
+  }
+  let p = 0; for (const k of GROUPS) { const a = out[k]; for (let i = 1; i <= NB; i++) p += a[i] * a[i]; }
+  out.rms = Math.sqrt(p / 2);
+  out.scale = out.rms ? LOUD * Math.pow(out.rms, 0.6) / out.rms : 0;
+  return out;
+}
+function outSpectrum(stops, note) {
+  const sp = computeSpec(stops, note); const v = new Float32Array(NB + 1);
+  if (!sp.rms) return v;
+  for (const k of GROUPS) { const a = sp[k]; for (let i = 1; i <= NB; i++) if (a[i]) v[i] = Math.hypot(v[i], a[i] * sp.scale); }
+  return v;
+}
+// Ressemblance acoustique de deux registrations (1 = identiques)
+function similarity(stopsA, stopsB, notes) {
+  const pairs = []; let max = 1e-9;
+  for (const n of notes) {
+    const a = outSpectrum(stopsA, n), b = outSpectrum(stopsB, n); pairs.push([a, b]);
+    for (let i = 1; i <= NB; i++) max = Math.max(max, a[i], b[i]);
+  }
+  let num = 0, den = 0; const floor = max * 0.0056;
+  for (const [a, b] of pairs) for (let i = 1; i <= NB; i++) {
+    if (a[i] < floor && b[i] < floor) continue;
+    const da = 20 * Math.log10(Math.max(a[i] / max, 0.0056)), db = 20 * Math.log10(Math.max(b[i] / max, 0.0056));
+    const w = 1 / Math.sqrt(1 + i / 6);
+    num += w * (da - db) * (da - db); den += w;
+  }
+  return den ? Math.exp(-Math.sqrt(num / den) / 12) : 1;
+}
+
+const hooks = { noteOn: () => {}, noteOff: () => {} };
+
+const engine = {
+  ctx: null, ready: false, cache: new Map(), divIn: {}, swellValue: 1,
+  init() {
+    if (this.ctx) { if (this.ctx.state !== 'running') this.ctx.resume(); return; }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { toast("Ce navigateur ne permet pas de jouer le son."); return; }
+    this.build(new AC({ latencyHint: 'interactive' }));
+  },
+  build(ctx) {
+    this.ctx = ctx;
+    const noise = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
+    this.noise = noise;
+    this.mix = ctx.createGain();
+    this.dry = ctx.createGain();
+    this.wet = ctx.createGain();
+    this.conv = ctx.createConvolver(); this.conv.buffer = this.makeIR(4.4);
+    this.comp = ctx.createDynamicsCompressor();
+    this.comp.threshold.value = -18; this.comp.knee.value = 8; this.comp.ratio.value = 4; this.comp.attack.value = 0.006; this.comp.release.value = 0.25;
+    this.master = ctx.createGain();
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -3; this.limiter.knee.value = 0; this.limiter.ratio.value = 20; this.limiter.attack.value = 0.001; this.limiter.release.value = 0.12;
+    this.mix.connect(this.dry).connect(this.comp);
+    this.mix.connect(this.conv).connect(this.wet).connect(this.comp);
+    this.comp.connect(this.master).connect(this.limiter).connect(ctx.destination);
+    for (const d of DIV_ORDER) this.divIn[d] = ctx.createGain();
+    this.swellLP = ctx.createBiquadFilter(); this.swellLP.type = 'lowpass'; this.swellLP.Q.value = 0.5;
+    this.swellGain = ctx.createGain();
+    this.divIn.R.connect(this.swellLP).connect(this.swellGain).connect(this.mix);
+    for (const d of ['P', 'GO', 'Ped']) this.divIn[d].connect(this.mix);
+    this.setSwell(this.swellValue, true);
+    this.setVolume(save.volume); this.setReverb(save.reverb);
+    // Souffle discret de la soufflerie
+    const bl = ctx.createBufferSource(); bl.buffer = noise; bl.loop = true;
+    const blf = ctx.createBiquadFilter(); blf.type = 'lowpass'; blf.frequency.value = 240;
+    const blg = ctx.createGain(); blg.gain.value = 0.0035;
+    bl.connect(blf).connect(blg).connect(this.dry); bl.start();
+    this.ready = true;
+  },
+  makeIR(seconds) {
+    const ctx = this.ctx, sr = ctx.sampleRate, len = Math.floor(sr * seconds), buf = ctx.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch); let lp = 0;
+      for (let i = 0; i < len; i++) {
+        const t = i / sr;
+        const env = Math.exp(-6.9 * t / seconds);
+        const coef = 0.5 * Math.exp(-t * 0.85) + 0.035;
+        lp += coef * ((Math.random() * 2 - 1) - lp);
+        d[i] = t < 0.022 ? 0 : lp * env * (1 + 0.8 * Math.exp(-(t - 0.022) * 25));
+      }
+      for (const [ms, g] of [[19, 0.5], [27, 0.38], [41, 0.33], [53, 0.28], [67, 0.22], [83, 0.18], [101, 0.14], [127, 0.1]]) {
+        const idx = Math.floor((ms + ch * 3.3) / 1000 * sr); if (idx < len) d[idx] += g * (ch ? -0.9 : 1);
+      }
+    }
+    return buf;
+  },
+  setVolume(v) { if (this.master) this.master.gain.setTargetAtTime(v * 0.95, this.ctx.currentTime, 0.05); },
+  setReverb(v) { if (!this.wet) return; const t = this.ctx.currentTime; this.wet.gain.setTargetAtTime(v * 1.1, t, 0.05); this.dry.gain.setTargetAtTime(1 - v * 0.35, t, 0.05); },
+  setSwell(v, now) {
+    this.swellValue = v; if (!this.ctx) return;
+    const t = this.ctx.currentTime, tc = now ? 0.005 : 0.06;
+    this.swellLP.frequency.setTargetAtTime(1300 * Math.pow(14, v), t, tc);
+    this.swellGain.gain.setTargetAtTime(0.32 + 0.68 * v, t, tc);
+  },
+  scheduleSwell(points, t0) {
+    const t = this.ctx.currentTime;
+    this.swellLP.frequency.cancelScheduledValues(t); this.swellGain.gain.cancelScheduledValues(t);
+    for (const [at, v] of points) {
+      this.swellLP.frequency.setTargetAtTime(1300 * Math.pow(14, v), t0 + at, 0.35);
+      this.swellGain.gain.setTargetAtTime(0.32 + 0.68 * v, t0 + at, 0.35);
+    }
+  },
+  voiceData(stops, note) {
+    const key = stops.map(s => s.id).sort().join(',') + '|' + note;
+    let vd = this.cache.get(key);
+    if (vd) return vd;
+    const sp = computeSpec(stops, note, this.ctx.sampleRate);
+    vd = { waves: {}, chiff: sp.chiff, low: sp.low, loud: LOUD * Math.pow(sp.rms || 0, 0.6), empty: !sp.rms };
+    if (sp.rms) for (const k of GROUPS) {
+      const a = sp[k]; let any = false;
+      const re = new Float32Array(NB + 1), im = new Float32Array(NB + 1);
+      for (let i = 1; i <= NB; i++) if (a[i]) { any = true; const v = a[i] * sp.scale; re[i] = v * Math.cos(PHASES[i]); im[i] = v * Math.sin(PHASES[i]); }
+      if (any) vd.waves[k] = this.ctx.createPeriodicWave(re, im, { disableNormalization: true });
+    }
+    if (this.cache.size > 900) this.cache.clear();
+    this.cache.set(key, vd);
+    return vd;
+  },
+  startVoice(div, note, stops, when, opts = {}) {
+    if (!this.ready || !stops.length) return null;
+    const ctx = this.ctx, vd = this.voiceData(stops, note);
+    if (vd.empty) return null;
+    const t0 = Math.max(when ?? ctx.currentTime, ctx.currentTime);
+    const bus = this.divIn[div], f = mtof(note) / 2, nodes = [];
+    const DET = { A: -1.1, B: 1.3, R: 0.3, C: 5.5 };
+    for (const k of GROUPS) {
+      const w = vd.waves[k]; if (!w) continue;
+      const o = ctx.createOscillator(); o.setPeriodicWave(w); o.frequency.value = f; o.detune.value = DET[k] + (Math.random() - 0.5) * 0.6;
+      const g = ctx.createGain(); g.gain.value = 0;
+      const att = k === 'R' ? 0.012 : opts.fast ? 0.012 : 0.02 + 0.03 * vd.low;
+      g.gain.setValueAtTime(0, t0); g.gain.setTargetAtTime(1, t0, att);
+      o.connect(g).connect(bus); o.start(t0);
+      o.onended = () => { o.disconnect(); g.disconnect(); };
+      nodes.push({ o, g, reed: k === 'R' });
+    }
+    if (vd.chiff && !opts.fast) {
+      const src = ctx.createBufferSource(); src.buffer = this.noise;
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = clamp(mtof(note) * 2.5, 300, 8000); bp.Q.value = 1.2;
+      const cg = ctx.createGain(); const lvl = vd.chiff * 2.4 * vd.loud;
+      cg.gain.setValueAtTime(0, t0); cg.gain.linearRampToValueAtTime(lvl, t0 + 0.004); cg.gain.setTargetAtTime(0, t0 + 0.006, 0.022);
+      src.connect(bp).connect(cg).connect(bus); src.start(t0, Math.random() * 1.5, 0.15);
+      src.onended = () => { src.disconnect(); bp.disconnect(); cg.disconnect(); };
+    }
+    return { nodes, t0, div, note };
+  },
+  stopVoice(v, when, fast) {
+    if (!v) return;
+    const now = this.ctx.currentTime;
+    const t = Math.max(when ?? now, v.t0 + 0.005, now);
+    for (const n of v.nodes) {
+      const rel = fast ? 0.012 : n.reed ? 0.035 : 0.05;
+      if (fast) n.g.gain.cancelScheduledValues(t);
+      n.g.gain.setTargetAtTime(0, t, rel);
+      try { n.o.stop(t + rel * 9); } catch (e) { /* déjà arrêté */ }
+    }
+  },
+  cutVoice(v) {
+    const t = this.ctx.currentTime;
+    for (const n of v.nodes) { n.g.gain.cancelScheduledValues(t); n.g.gain.setTargetAtTime(0, t, 0.02); try { n.o.stop(t + 0.2); } catch (e) { /* déjà arrêté */ } }
+  },
+  click(pull) {
+    if (!this.ready) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource(); src.buffer = this.noise;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = pull ? 1900 : 1300; bp.Q.value = 2;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.3, t + 0.002); g.gain.setTargetAtTime(0, t + 0.003, 0.012);
+    src.connect(bp).connect(g).connect(this.dry); src.start(t, Math.random(), 0.08);
+    const o = ctx.createOscillator(); o.frequency.setValueAtTime(pull ? 150 : 110, t); o.frequency.exponentialRampToValueAtTime(55, t + 0.07);
+    const og = ctx.createGain(); og.gain.setValueAtTime(0.22, t); og.gain.setTargetAtTime(0, t + 0.01, 0.018);
+    o.connect(og).connect(this.dry); o.start(t); o.stop(t + 0.15);
+    if (pull) {
+      const w = ctx.createBufferSource(); w.buffer = this.noise;
+      const lf = ctx.createBiquadFilter(); lf.type = 'bandpass'; lf.frequency.value = 600; lf.Q.value = 0.7;
+      const wg = ctx.createGain(); wg.gain.setValueAtTime(0, t); wg.gain.linearRampToValueAtTime(0.025, t + 0.05); wg.gain.setTargetAtTime(0, t + 0.08, 0.06);
+      w.connect(lf).connect(wg).connect(this.mix); w.start(t, Math.random(), 0.4);
+    }
+  },
+  // Lecture d'une suite d'événements ; stopsFor(div) donne la registration, divsFor(div) les plans qui sonnent
+  play(phrase, { div, stopsFor, divsFor, swell, onEnd }) {
+    this.stopPlayback();
+    if (!this.ready) { onEnd?.(); return; }
+    const ctx = this.ctx;
+    const plan = [];
+    for (const ev of phrase.events) {
+      for (const d of (divsFor ? divsFor(ev.div || div) : [ev.div || div])) {
+        const st = stopsFor(d); if (!st.length) continue;
+        for (const n0 of ev.n) { const n = foldNote(d, n0); this.voiceData(st, n); plan.push({ ev, d, n, st }); }
+      }
+    }
+    const t0 = ctx.currentTime + 0.1;
+    const pb = { voices: [], timers: [], lit: [] };
+    for (const p of plan) {
+      const v = this.startVoice(p.d, p.n, p.st, t0 + p.ev.t);
+      if (v) { this.stopVoice(v, t0 + p.ev.t + p.ev.d * 0.95); pb.voices.push(v); }
+      pb.timers.push(setTimeout(() => { hooks.noteOn(p.d, p.n); pb.lit.push([p.d, p.n]); }, (p.ev.t + 0.1) * 1000));
+      pb.timers.push(setTimeout(() => hooks.noteOff(p.d, p.n), (p.ev.t + p.ev.d * 0.95 + 0.1) * 1000));
+    }
+    if (swell) this.scheduleSwell(swell, t0);
+    const userSwell = this.swellValue;
+    pb.finish = () => { if (swell) this.setSwell(userSwell); };
+    pb.timers.push(setTimeout(() => { pb.finish(); this.playback = null; onEnd?.(true); }, (phrase.length + 0.6) * 1000));
+    pb.onEnd = onEnd;
+    this.playback = pb;
+  },
+  stopPlayback() {
+    const pb = this.playback; if (!pb) return;
+    pb.timers.forEach(clearTimeout);
+    for (const v of pb.voices) this.cutVoice(v);
+    for (const [d, n] of pb.lit) hooks.noteOff(d, n);
+    pb.finish(); this.playback = null; pb.onEnd?.(false);
+  },
+};
+
+function foldNote(div, n) { const D = DIVS[div]; while (n > D.high) n -= 12; while (n < D.low) n += 12; return n; }
+
+/* ============================ ÉTAT DE JEU ================================ */
+
+let mode = 'title';
+const lv = { idx: 0, def: null, pulled: new Set(), attempts: 0, hints: 0, hinted: new Set(), solved: false, simNotes: [] };
+const con = { pulled: new Set(), acc: { c12: false, c32: false, t1: false, t2: false, t3: false }, appel: { P: true, GO: true, R: true, Ped: true }, manual: 'GO', tab: 'GO', pedal: false };
+const kb = { manualBase: 60, pedalBase: 36 };
+
+function currentStops(div) {
+  if (mode === 'level') return lv.def && lv.def.div === div ? [...lv.pulled].map(id => STOP[id]) : [];
+  if (mode === 'console' || mode === 'finale') return [...con.pulled].map(id => STOP[id]).filter(s => s.div === div && (!s.reed || con.appel[div]));
+  return [];
+}
+function targets(src) {
+  if (mode === 'level') return lv.def ? [lv.def.div] : [];
+  if (mode === 'console' || mode === 'finale') {
+    const t = [src];
+    if (src === 'GO') { if (con.acc.c12) t.push('P'); if (con.acc.c32) t.push('R'); }
+    if (src === 'Ped') { if (con.acc.t1) t.push('P'); if (con.acc.t2) t.push('GO'); if (con.acc.t3) t.push('R'); }
+    return t;
+  }
+  return [];
+}
+
+// Touches tenues : clé = origine:plan:note
+const held = new Map();
+function keyDown(origin, src, note) {
+  const k = origin + ':' + src + ':' + note; if (held.has(k)) return;
+  ensureAudio();
+  const e = { src, note, voices: new Map() }; held.set(k, e);
+  for (const d of targets(src)) {
+    const n = foldNote(d, note);
+    const v = engine.startVoice(d, n, currentStops(d)); if (v) e.voices.set(d, v);
+    hooks.noteOn(d, n);
+  }
+  keyVisual(src, note, true);
+}
+function keyUp(origin, src, note) {
+  const k = origin + ':' + src + ':' + note; const e = held.get(k); if (!e) return;
+  held.delete(k);
+  for (const [d, v] of e.voices) { engine.stopVoice(v); }
+  for (const d of targets(src)) hooks.noteOff(d, foldNote(d, note));
+  keyVisual(src, note, false);
+}
+function releaseAll() { for (const k of [...held.keys()]) { const [o, s, n] = k.split(':'); keyUp(o, s, +n); } }
+// Un jeu tiré pendant qu'une touche est tenue se met à parler aussitôt
+function refreshHeld() {
+  if (!engine.ready) return;
+  for (const e of held.values()) {
+    const want = targets(e.src);
+    for (const [d, v] of e.voices) { engine.stopVoice(v, undefined, true); }
+    e.voices.clear();
+    for (const d of want) { const v = engine.startVoice(d, foldNote(d, e.note), currentStops(d), undefined, { fast: true }); if (v) e.voices.set(d, v); }
+  }
+}
+
+/* ================================ INTERFACE ============================== */
+
+let toastTimer = 0;
+function toast(msg, ms = 3600) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, ms); }
+function starsHTML(n) { let s = ''; for (let i = 0; i < 3; i++) s += i < n ? '★' : '<span class="off">★</span>'; return `<span class="stars" aria-label="${n} étoile${n > 1 ? 's' : ''} sur 3">${s}</span>`; }
+function escapeHTML(s) { return s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+function showModal({ eyebrow = '', title, body = '', actions = [] }) {
+  $('#modal-eyebrow').textContent = eyebrow;
+  $('#modal-title').textContent = title;
+  $('#modal-body').innerHTML = body;
+  const box = $('#modal-actions'); box.innerHTML = '';
+  for (const a of actions) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ' + (a.cls || ''); b.textContent = a.label;
+    b.addEventListener('click', () => { if (!a.keep) hideModal(); a.onClick?.(); }); box.append(b);
+  }
+  $('#modal').hidden = false;
+  box.lastElementChild?.focus();
+}
+function hideModal() { $('#modal').hidden = true; }
+
+const SCREENS = ['title', 'menu', 'campaign', 'level', 'console', 'chronicle', 'settings', 'finale'];
+function show(name) {
+  engine.stopPlayback(); releaseAll(); hideModal();
+  mode = name;
+  for (const s of SCREENS) $('#s-' + s).hidden = s !== name;
+  if (name === 'menu') { renderMenu(); scene3d.view('overview'); }
+  if (name === 'campaign') { renderCampaign(); scene3d.view('overview'); }
+  if (name === 'chronicle') { renderChronicle(); scene3d.view('overview'); }
+  if (name === 'settings') { renderSettings(); scene3d.view('overview'); }
+  if (name === 'console') { kb.manualBase = 60; renderConsole(); scene3d.view('overview'); }
+  requestAnimationFrame(updatePanelOffset);
+}
+$$('[data-nav]').forEach(b => b.addEventListener('click', () => show(b.dataset.nav)));
+
+function updatePanelOffset() {
+  const scr = $('#s-' + mode);
+  const bottom = scr && !scr.hidden ? scr.querySelector('.hud-bottom') : null;
+  scene3d.setPanel(bottom ? bottom.getBoundingClientRect().height : 0);
+}
+const ro = new ResizeObserver(() => updatePanelOffset());
+$$('.hud-bottom').forEach(el => ro.observe(el));
+
+/* ---- Menu ---- */
+function renderMenu() {
+  const done = LEVELS.filter((_, i) => levelDone(i)).length;
+  $('#m-campaign-sub').textContent = done ? `${done} registration${done > 1 ? 's' : ''} retrouvée${done > 1 ? 's' : ''} sur ${LEVELS.length}` : `${LEVELS.length} registrations à retrouver à l'oreille`;
+  const cards = CHRONICLE.filter(cardUnlocked).length;
+  $('#m-chron-sub').textContent = `Trois siècles d'histoire de l'instrument · ${cards} page${cards > 1 ? 's' : ''} sur ${CHRONICLE.length}`;
+}
+$('#m-campaign').addEventListener('click', () => show('campaign'));
+$('#m-console').addEventListener('click', () => show('console'));
+$('#m-chronicle').addEventListener('click', () => show('chronicle'));
+$('#m-settings').addEventListener('click', () => show('settings'));
+
+/* ---- Campagne ---- */
+function renderCampaign() {
+  const box = $('#chapters'); box.innerHTML = '';
+  CHAPTERS.forEach((ch, ci) => {
+    const sec = document.createElement('section'); sec.className = 'chapter';
+    sec.innerHTML = `<div class="chapter-head"><span class="chapter-roman">${ch.roman}</span><span class="chapter-title">${ch.title}</span><span class="chapter-era">${ch.era}</span></div><div class="tiles"></div>`;
+    const tiles = sec.querySelector('.tiles');
+    for (const { l, i } of chapterLevels(ci)) {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'tile';
+      const un = levelUnlocked(i), st = save.stars[l.id] || 0;
+      b.disabled = !un;
+      b.innerHTML = `<span class="tile-name">${l.title}</span><span class="tile-meta">${un ? (st ? starsHTML(st) : 'À restaurer') : 'Pas encore accessible'}</span>`;
+      b.addEventListener('click', () => openLevel(i));
+      tiles.append(b);
+    }
+    box.append(sec);
+  });
+  if (save.finale || LEVELS.every((_, i) => levelDone(i))) {
+    const sec = document.createElement('section'); sec.className = 'chapter';
+    sec.innerHTML = `<div class="chapter-head"><span class="chapter-roman">✦</span><span class="chapter-title">L'inauguration</span><span class="chapter-era">Le tutti</span></div><div class="tiles"><button class="tile" type="button"><span class="tile-name">Faire sonner l'orgue</span><span class="tile-meta">Toccata BWV 565, début</span></button></div>`;
+    sec.querySelector('button').addEventListener('click', openFinale);
+    box.append(sec);
+  }
+  const next = LEVELS.findIndex((_, i) => !levelDone(i));
+  $('#btn-continue').textContent = next === -1 ? "L'inauguration" : next === 0 ? 'Commencer' : 'Continuer';
+}
+$('#btn-continue').addEventListener('click', () => { const next = LEVELS.findIndex((_, i) => !levelDone(i)); next === -1 ? openFinale() : openLevel(next); });
+
+/* ---- Tirants ---- */
+function knobEl(s, pressed, onToggle) {
+  const b = document.createElement('button'); b.type = 'button';
+  b.className = 'knob' + (s.reed ? ' reed' : ''); b.dataset.id = s.id;
+  b.setAttribute('aria-pressed', String(pressed));
+  b.setAttribute('aria-label', `${s.name} ${s.label.replace('⅔', 'deux tiers').replace('⅗', 'trois cinquièmes').replace('⅓', 'un tiers')}`);
+  b.innerHTML = `<span class="knob-face"><span class="knob-name">${escapeHTML(s.knob || s.name)}</span><span class="knob-feet">${s.label}</span></span><span class="knob-rod"></span>`;
+  b.addEventListener('click', () => onToggle(s, b));
+  return b;
+}
+
+/* ---- Niveau ---- */
+function openLevel(i) {
+  const def = LEVELS[i];
+  show('level');
+  Object.assign(lv, { idx: i, def, attempts: 0, hints: 0, solved: false, playing: null });
+  lv.pulled = new Set(); lv.hinted = new Set();
+  const ch = CHAPTERS[def.ch];
+  $('#lv-chapter').textContent = `Chapitre ${ch.roman} · ${ch.title}`;
+  $('#lv-title').textContent = def.title;
+  $('#lv-intro-text').textContent = def.intro;
+  $('#lv-intro-goal').textContent = `${def.target.length} jeu${def.target.length > 1 ? 'x' : ''} à retrouver parmi les ${stopsOf(def.div).length} du ${DIVS[def.div].name}.`;
+  $('#lv-intro').hidden = false;
+  const notes = [...new Set(def.phrase().events.flatMap(e => e.n).map(n => foldNote(def.div, n)))].sort((a, b) => a - b);
+  lv.simNotes = notes.length > 6 ? [0, 1, 2, 3, 4, 5].map(k => notes[Math.round(k * (notes.length - 1) / 5)]) : notes;
+  lv.targetStops = def.target.map(id => STOP[id]);
+  const stops = stopsOf(def.div), half = Math.ceil(stops.length / 2);
+  const L = $('#jamb-left'), R = $('#jamb-right'); L.innerHTML = ''; R.innerHTML = '';
+  stops.forEach((s, k) => (k < half ? L : R).append(knobEl(s, false, toggleLevelKnob)));
+  $('#meter').hidden = save.difficulty !== 'apprenti';
+  setFeedback('');
+  updateMeter();
+  setPlayButtons();
+  kb.manualBase = def.div === 'Ped' ? 36 : 60;
+  buildKeyboards();
+  scene3d.view(def.div);
+}
+function toggleLevelKnob(s, el) {
+  if (lv.solved) return;
+  ensureAudio();
+  const on = !lv.pulled.has(s.id);
+  on ? lv.pulled.add(s.id) : lv.pulled.delete(s.id);
+  el.setAttribute('aria-pressed', String(on));
+  engine.click(on);
+  refreshHeld();
+  updateMeter();
+}
+function updateMeter() {
+  if (save.difficulty !== 'apprenti' || !lv.def) return;
+  const sim = lv.pulled.size ? similarity([...lv.pulled].map(id => STOP[id]), lv.targetStops, lv.simNotes) : 0;
+  const pct = Math.round(sim * 100);
+  $('#meter-val').textContent = pct + ' %';
+  $('#meter-fill').style.width = pct + '%';
+}
+function setFeedback(msg, cls = '') { const f = $('#feedback'); f.textContent = msg; f.className = 'feedback ' + cls; }
+function setPlayButtons(playing) {
+  $('#btn-model').textContent = playing === 'model' ? 'Arrêter' : 'Écouter le modèle';
+  $('#btn-mine').textContent = playing === 'mine' ? 'Arrêter' : 'Ma registration';
+}
+function playLevel(which) {
+  ensureAudio();
+  if (lv.playing === which) { engine.stopPlayback(); return; }
+  const def = lv.def;
+  const stops = which === 'model' ? lv.targetStops : [...lv.pulled].map(id => STOP[id]);
+  if (!stops.length) { setFeedback('Tirez au moins un jeu pour entendre votre registration.', 'warn'); return; }
+  lv.playing = which; setPlayButtons(which);
+  engine.play(def.phrase(), { div: def.div, stopsFor: () => stops, swell: def.swell, onEnd: () => { if (lv.playing === which) { lv.playing = null; setPlayButtons(); } } });
+}
+$('#btn-model').addEventListener('click', () => playLevel('model'));
+$('#btn-mine').addEventListener('click', () => playLevel('mine'));
+$('#btn-start').addEventListener('click', () => { $('#lv-intro').hidden = true; updatePanelOffset(); playLevel('model'); });
+$('#btn-close-intro').addEventListener('click', () => { $('#lv-intro').hidden = true; });
+$('#btn-info').addEventListener('click', () => { $('#lv-intro').hidden = !$('#lv-intro').hidden; });
+
+const FAM_MISSING = { fond: 'un jeu de fond', mutation: 'une mutation', mixture: 'une mixture', anche: 'une anche' };
+const FAM_EXTRA = { fond: 'Un jeu de fond est de trop.', mutation: 'Une mutation est de trop.', mixture: 'Une mixture est de trop.', anche: 'Une anche est de trop.' };
+function validate() {
+  if (lv.solved) return;
+  ensureAudio();
+  if (!lv.pulled.size) { setFeedback('Tirez au moins un jeu avant de valider.', 'warn'); return; }
+  lv.attempts++;
+  const target = new Set(lv.def.target);
+  const correct = [...lv.pulled].filter(id => target.has(id)).length;
+  const extraIds = [...lv.pulled].filter(id => !target.has(id));
+  const missingIds = lv.def.target.filter(id => !lv.pulled.has(id));
+  const exact = !extraIds.length && !missingIds.length;
+  const sim = similarity([...lv.pulled].map(id => STOP[id]), lv.targetStops, lv.simNotes);
+  if (exact || sim >= 0.985) return solve(exact);
+  let msg = `${correct} jeu${correct > 1 ? 'x' : ''} juste${correct > 1 ? 's' : ''} sur ${target.size}`;
+  if (extraIds.length) msg += `, ${extraIds.length} de trop`;
+  msg += '.';
+  if (save.difficulty === 'apprenti') {
+    if (missingIds.length) msg += ` Il manque ${FAM_MISSING[STOP[missingIds[0]].fam]}.`;
+    else if (extraIds.length) msg += ' ' + FAM_EXTRA[STOP[extraIds[0]].fam];
+  }
+  setFeedback(msg, 'warn');
+}
+$('#btn-validate').addEventListener('click', validate);
+$('#btn-hint').addEventListener('click', () => {
+  if (lv.solved) return;
+  ensureAudio();
+  const missing = lv.def.target.filter(id => !lv.pulled.has(id));
+  const extra = [...lv.pulled].filter(id => !lv.def.target.includes(id));
+  let id, on;
+  if (missing.length) { id = missing[Math.floor(Math.random() * missing.length)]; on = true; }
+  else if (extra.length) { id = extra[0]; on = false; }
+  else return;
+  lv.hints++;
+  on ? lv.pulled.add(id) : lv.pulled.delete(id);
+  const el = $(`#s-level .knob[data-id="${CSS.escape(id)}"]`);
+  el.setAttribute('aria-pressed', String(on)); el.classList.add('hinted');
+  engine.click(on); refreshHeld(); updateMeter();
+  setFeedback(on ? `Indice : le ${STOP[id].name} ${STOP[id].label} fait partie du modèle.` : `Indice : le ${STOP[id].name} ${STOP[id].label} n'en fait pas partie.`);
+});
+
+function solve(exact) {
+  lv.solved = true;
+  engine.stopPlayback();
+  const stars = lv.hints === 0 && lv.attempts === 1 ? 3 : lv.attempts <= 3 && lv.hints <= 1 ? 2 : 1;
+  const def = lv.def, ci = def.ch;
+  const firstTime = !save.stars[def.id];
+  save.stars[def.id] = Math.max(save.stars[def.id] || 0, stars); persist();
+  $$('#s-level .knob').forEach(k => { k.disabled = true; });
+  setFeedback('Registration retrouvée.', 'good');
+  scene3d.restore(def.div, chapterProgress(ci));
+  scene3d.flash();
+  // le modèle résonne dans l'orgue restauré
+  engine.play(def.phrase(), { div: def.div, stopsFor: () => lv.targetStops, swell: def.swell });
+  const regNames = lv.targetStops.map(s => `${s.name} ${s.label}`).join(', ');
+  const nextIdx = lv.idx + 1;
+  const chapterJustDone = firstTime && chapterDone(ci);
+  const proceed = () => {
+    if (chapterJustDone) return showChapterCard(ci);
+    if (nextIdx < LEVELS.length) openLevel(nextIdx); else show('campaign');
+  };
+  showModal({
+    eyebrow: `${CHAPTERS[ci].title} · ${def.title}`,
+    title: exact ? 'Registration retrouvée' : 'À l\'oreille, c\'est le même son',
+    body: `${starsHTML(stars)}<p class="reg-list">${regNames}</p><div class="fact"><span class="fact-label">Le saviez-vous ?</span><p>${def.fact}</p></div>`,
+    actions: [
+      { label: 'Réécouter', cls: 'btn-quiet', keep: true, onClick: () => engine.play(def.phrase(), { div: def.div, stopsFor: () => lv.targetStops, swell: def.swell }) },
+      { label: chapterJustDone ? 'Lire la chronique' : nextIdx < LEVELS.length ? 'Niveau suivant' : 'Terminer', cls: 'btn-gold', onClick: proceed },
+    ],
+  });
+}
+function showChapterCard(ci) {
+  const card = CHRONICLE.find(c => c.id === CHAPTERS[ci].card);
+  const last = ci === CHAPTERS.length - 1;
+  showModal({
+    eyebrow: `Chapitre ${CHAPTERS[ci].roman} achevé · ${DIVS[CHAPTERS[ci].div].name} restauré`,
+    title: card.title,
+    body: `<div class="fact"><span class="fact-label">${card.year}</span><p>${card.text}</p></div>`,
+    actions: [{ label: last ? "Vers l'inauguration" : 'Chapitre suivant', cls: 'btn-gold', onClick: () => (last ? openFinale() : openLevel(lv.idx + 1)) }],
+  });
+}
+
+/* ---- Console libre ---- */
+function renderConsole() {
+  const tabs = $('#con-tabs'); tabs.innerHTML = '';
+  for (const d of DIV_ORDER) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'tab'; b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', String(con.tab === d));
+    const n = [...con.pulled].filter(id => STOP[id].div === d).length;
+    b.innerHTML = `<span>${DIVS[d].roman === 'P' ? '' : DIVS[d].roman + ' · '}${DIVS[d].short}</span><span class="count">${n}</span>`;
+    b.addEventListener('click', () => { con.tab = d; renderConsole(); });
+    tabs.append(b);
+  }
+  const box = $('#con-knobs'); box.innerHTML = '';
+  for (const s of stopsOf(con.tab)) box.append(knobEl(s, con.pulled.has(s.id), toggleConsoleKnob));
+  $$('#s-console [data-acc]').forEach(b => b.setAttribute('aria-pressed', String(!!con.acc[b.dataset.acc])));
+  $$('#s-console [data-appel]').forEach(b => b.setAttribute('aria-pressed', String(!!con.appel[b.dataset.appel])));
+  $$('#s-console [data-man]').forEach(b => b.setAttribute('aria-pressed', String(con.manual === b.dataset.man)));
+  $('#con-pedal-toggle').setAttribute('aria-pressed', String(con.pedal));
+  $('#con-pedal').hidden = !con.pedal;
+  $('#con-swell').value = engine.swellValue;
+  buildKeyboards();
+}
+function toggleConsoleKnob(s, el) {
+  ensureAudio();
+  const on = !con.pulled.has(s.id);
+  on ? con.pulled.add(s.id) : con.pulled.delete(s.id);
+  el.setAttribute('aria-pressed', String(on));
+  engine.click(on); refreshHeld();
+  const tab = $$('#con-tabs .tab')[DIV_ORDER.indexOf(s.div)];
+  if (tab) tab.querySelector('.count').textContent = [...con.pulled].filter(id => STOP[id].div === s.div).length;
+}
+function applyPreset(p) {
+  ensureAudio();
+  con.pulled = new Set(p.stops);
+  con.acc = { c12: false, c32: false, t1: false, t2: false, t3: false, ...p.acc };
+  con.appel = { P: true, GO: true, R: true, Ped: true };
+  engine.click(true); renderConsole(); refreshHeld();
+}
+for (const p of PRESETS) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'pill'; b.textContent = p.label;
+  b.addEventListener('click', () => applyPreset(p)); $('#con-presets').append(b);
+}
+const clearBtn = document.createElement('button'); clearBtn.type = 'button'; clearBtn.className = 'pill'; clearBtn.textContent = 'Tout repousser';
+clearBtn.addEventListener('click', () => { con.pulled.clear(); engine.click(false); renderConsole(); refreshHeld(); });
+$('#con-presets').append(clearBtn);
+$$('#s-console [data-acc]').forEach(b => b.addEventListener('click', () => { con.acc[b.dataset.acc] = !con.acc[b.dataset.acc]; b.setAttribute('aria-pressed', String(con.acc[b.dataset.acc])); engine.click(con.acc[b.dataset.acc]); refreshHeld(); }));
+$$('#s-console [data-appel]').forEach(b => b.addEventListener('click', () => { con.appel[b.dataset.appel] = !con.appel[b.dataset.appel]; b.setAttribute('aria-pressed', String(con.appel[b.dataset.appel])); engine.click(con.appel[b.dataset.appel]); refreshHeld(); }));
+$$('#s-console [data-man]').forEach(b => b.addEventListener('click', () => { releaseAll(); con.manual = b.dataset.man; renderConsole(); }));
+$('#con-swell').addEventListener('input', e => { engine.setSwell(+e.target.value); scene3d.swell(+e.target.value); });
+$('#con-pedal-toggle').addEventListener('click', () => { con.pedal = !con.pedal; renderConsole(); requestAnimationFrame(updatePanelOffset); });
+$('#con-fold').addEventListener('click', e => {
+  const p = $('#con-panel'); p.hidden = !p.hidden;
+  e.target.textContent = p.hidden ? 'Déplier' : 'Replier'; e.target.setAttribute('aria-expanded', String(!p.hidden));
+  requestAnimationFrame(updatePanelOffset);
+});
+function demo(btn, phrase, expand) {
+  ensureAudio();
+  if (engine.playback && engine.playback.demo === btn.id) { engine.stopPlayback(); return; }
+  if (!DIV_ORDER.some(d => currentStops(d).length)) { toast('Tirez quelques jeux, ou choisissez une registration, avant d\'écouter.'); return; }
+  const label = btn.textContent; btn.textContent = 'Arrêter';
+  engine.play(phrase, { div: con.manual, stopsFor: currentStops, divsFor: expand ? targets : null, onEnd: () => { btn.textContent = label; } });
+  if (engine.playback) engine.playback.demo = btn.id;
+}
+$('#demo-toccata').addEventListener('click', e => {
+  if (!DIV_ORDER.some(d => currentStops(d).length)) applyPreset(PRESETS.find(p => p.id === 'plein'));
+  demo(e.currentTarget, toccata(), true);
+});
+$('#demo-veni').addEventListener('click', e => {
+  const parts = VENI.map((v, i) => seq(v, 84, con.manual === 'Ped' ? -12 : 12));
+  const events = []; let t = 0;
+  for (const p of parts) { for (const ev of p.events) events.push({ ...ev, t: ev.t + t, div: con.manual }); t += p.length + 0.5; }
+  demo(e.currentTarget, { events, length: t }, true);
+});
+
+/* ---- Claviers à l'écran ---- */
+const AZ_MAN = ['Q', 'Z', 'S', 'E', 'D', 'F', 'T', 'G', 'Y', 'H', 'U', 'J', 'K', 'O', 'L', 'P', 'M', 'Ù'];
+const AZ_PED = { 0: 'W', 2: 'X', 4: 'C', 5: 'V', 7: 'B', 9: 'N', 11: ',', 12: ';' };
+function frName(n) { return ['do', 'do♯', 'ré', 'ré♯', 'mi', 'fa', 'fa♯', 'sol', 'sol♯', 'la', 'la♯', 'si'][n % 12] + (Math.floor(n / 12) - 2); }
+const kbdState = [];
+function makeKeyboard(el, { low, high, srcFn, labels, origin }) {
+  el.innerHTML = '';
+  const whites = []; for (let n = low; n <= high; n++) if (!isBlack(n)) whites.push(n);
+  const W = 100 / whites.length; let wi = 0;
+  for (let n = low; n <= high; n++) {
+    const k = document.createElement('div'); const black = isBlack(n);
+    k.className = 'key ' + (black ? 'black' : 'white'); k.dataset.note = n;
+    if (black) { k.style.left = (wi * W - W * 0.32) + '%'; k.style.width = (W * 0.64) + '%'; }
+    else { k.style.left = (wi * W) + '%'; k.style.width = W + '%'; wi++; }
+    const lab = labels(n);
+    if (lab) k.innerHTML = `<span class="key-label">${lab}</span>`;
+    el.append(k);
+  }
+  const ptr = new Map();
+  const noteAt = (x, y) => { const t = document.elementFromPoint(x, y); return t && t.classList.contains('key') && el.contains(t) ? +t.dataset.note : null; };
+  el.onpointerdown = e => {
+    e.preventDefault(); el.setPointerCapture(e.pointerId);
+    const n = noteAt(e.clientX, e.clientY); if (n == null) return;
+    ptr.set(e.pointerId, n); keyDown(origin, srcFn(), n);
+  };
+  el.onpointermove = e => {
+    if (!ptr.has(e.pointerId)) return;
+    const n = noteAt(e.clientX, e.clientY), old = ptr.get(e.pointerId);
+    if (n == null || n === old) return;
+    keyUp(origin, srcFn(), old); ptr.set(e.pointerId, n); keyDown(origin, srcFn(), n);
+  };
+  const end = e => { if (!ptr.has(e.pointerId)) return; keyUp(origin, srcFn(), ptr.get(e.pointerId)); ptr.delete(e.pointerId); };
+  el.onpointerup = end; el.onpointercancel = end; el.onlostpointercapture = end;
+}
+function manualSrc() { return mode === 'level' ? lv.def.div : con.manual; }
+function buildKeyboards() {
+  const manLabels = n => {
+    const off = n - kb.manualBase; const az = off >= 0 && off < AZ_MAN.length ? AZ_MAN[off] : '';
+    const c = n % 12 === 0 ? `<b>${frName(n)}</b>` : '';
+    return c + az;
+  };
+  const fit = el => { const w = (el.parentElement?.clientWidth || window.innerWidth) - 32; return clamp(Math.floor(w / (COARSE ? 44 : 36)), 8, 24); };
+  const rangeFor = (base, whitesWanted, div) => {
+    const D = DIVS[div] || DIVS.GO; let low = base, count = 0, n = base;
+    while (count < whitesWanted && n <= D.high) { if (!isBlack(n)) count++; n++; }
+    let high = n - 1; if (isBlack(high)) high--;
+    if (low < D.low) low = D.low;
+    return [low, high];
+  };
+  if (mode === 'level' && lv.def) {
+    const el = $('#lv-kbd'); const div = lv.def.div;
+    const [lo, hi] = rangeFor(kb.manualBase, fit(el), div);
+    makeKeyboard(el, { low: lo, high: hi, srcFn: manualSrc, labels: manLabels, origin: 's' });
+  }
+  if (mode === 'console') {
+    const el = $('#con-kbd');
+    const [lo, hi] = rangeFor(kb.manualBase, fit(el), con.manual);
+    makeKeyboard(el, { low: lo, high: hi, srcFn: manualSrc, labels: manLabels, origin: 's' });
+    if (con.pedal) {
+      const pe = $('#con-pedal');
+      makeKeyboard(pe, { low: 36, high: 55, srcFn: () => 'Ped', labels: n => (n % 12 === 0 ? `<b>${frName(n)}</b>` : '') + (AZ_PED[n - 36] || ''), origin: 's' });
+    }
+  }
+}
+function keyVisual(src, note, on) {
+  const isPed = src === 'Ped' && mode === 'console';
+  const els = isPed ? ['#con-pedal'] : ['#lv-kbd', '#con-kbd'];
+  for (const sel of els) { const k = $(`${sel} .key[data-note="${note}"]`); if (k) k.classList.toggle('on', on); }
+}
+function shiftOctave(d) {
+  releaseAll();
+  const D = DIVS[manualSrc()] || DIVS.GO;
+  kb.manualBase = clamp(kb.manualBase + 12 * d, D.low, Math.floor((D.high - 12) / 12) * 12);
+  buildKeyboards();
+}
+$$('[data-oct]').forEach(b => b.addEventListener('click', () => shiftOctave(+b.dataset.oct)));
+$('#btn-kbd').addEventListener('click', e => {
+  const dock = $('#lv-kbd-dock'); dock.hidden = !dock.hidden;
+  e.currentTarget.setAttribute('aria-pressed', String(!dock.hidden));
+  if (!dock.hidden) buildKeyboards();
+  requestAnimationFrame(updatePanelOffset);
+});
+
+/* ---- Clavier d'ordinateur (position physique : juste en AZERTY comme en QWERTY) ---- */
+const CODE_MAN = ['KeyA', 'KeyW', 'KeyS', 'KeyE', 'KeyD', 'KeyF', 'KeyT', 'KeyG', 'KeyY', 'KeyH', 'KeyU', 'KeyJ', 'KeyK', 'KeyO', 'KeyL', 'KeyP', 'Semicolon', 'Quote'];
+const CODE_PED = { KeyZ: 0, KeyX: 2, KeyC: 4, KeyV: 5, KeyB: 7, KeyN: 9, KeyM: 11, Comma: 12 };
+function playable() { return (mode === 'level' && lv.def && !lv.solved) || mode === 'console'; }
+window.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (!$('#modal').hidden) return;
+  if (!playable()) return;
+  if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') { e.preventDefault(); if (!e.repeat) shiftOctave(e.code === 'ArrowLeft' ? -1 : 1); return; }
+  if (mode === 'console' && ['Digit1', 'Digit2', 'Digit3'].includes(e.code)) { releaseAll(); con.manual = ['P', 'GO', 'R'][+e.code.slice(5) - 1]; renderConsole(); return; }
+  const mi = CODE_MAN.indexOf(e.code);
+  if (mi >= 0) { e.preventDefault(); if (!e.repeat) keyDown('k', manualSrc(), kb.manualBase + mi); return; }
+  if (e.code in CODE_PED && mode === 'console') { e.preventDefault(); if (!e.repeat) keyDown('k', 'Ped', kb.pedalBase + CODE_PED[e.code]); }
+});
+window.addEventListener('keyup', e => {
+  const mi = CODE_MAN.indexOf(e.code);
+  if (mi >= 0) { if (mode === 'level' || mode === 'console') keyUp('k', manualSrc(), kb.manualBase + mi); return; }
+  if (e.code in CODE_PED) keyUp('k', 'Ped', kb.pedalBase + CODE_PED[e.code]);
+});
+window.addEventListener('blur', releaseAll);
+document.addEventListener('visibilitychange', () => { if (document.hidden) { releaseAll(); engine.stopPlayback(); } });
+
+/* ---- MIDI ---- */
+let midiAccess = null;
+function setMidiStatus(msg) { $('#con-midi-status').textContent = msg; $('#set-midi-status').textContent = msg; }
+async function connectMidi() {
+  ensureAudio();
+  if (!navigator.requestMIDIAccess) { setMidiStatus("Ce navigateur ne gère pas le MIDI. Essayez Chrome ou Edge sur ordinateur."); return; }
+  try {
+    midiAccess = await navigator.requestMIDIAccess();
+    const bind = () => {
+      let n = 0; for (const inp of midiAccess.inputs.values()) { inp.onmidimessage = onMidi; n++; }
+      setMidiStatus(n ? `${n} clavier${n > 1 ? 's' : ''} MIDI branché${n > 1 ? 's' : ''}.` : 'Aucun clavier MIDI détecté. Branchez-le, puis réessayez.');
+    };
+    bind(); midiAccess.onstatechange = bind;
+  } catch (e) { setMidiStatus("L'accès MIDI a été refusé par le navigateur."); }
+}
+function onMidi(e) {
+  const [st, d1, d2] = e.data; const cmd = st & 0xf0, ch = st & 0x0f;
+  if (cmd === 0xb0 && (d1 === 11 || d1 === 7 || d1 === 4)) { const v = d2 / 127; engine.setSwell(v); scene3d.swell(v); const sw = $('#con-swell'); if (sw) sw.value = v; return; }
+  if (!playable()) return;
+  const src = mode === 'level' ? lv.def.div : ([con.manual, 'P', 'GO', 'R', 'Ped'][ch] || con.manual);
+  if (cmd === 0x90 && d2 > 0) keyDown('m', src, d1);
+  else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)) keyUp('m', src, d1);
+}
+$('#con-midi').addEventListener('click', connectMidi);
+$('#set-midi').addEventListener('click', connectMidi);
+
+/* ---- Chronique ---- */
+function renderChronicle() {
+  const box = $('#cards'); box.innerHTML = '';
+  for (const c of CHRONICLE) {
+    const un = cardUnlocked(c); const d = document.createElement('article'); d.className = 'card' + (un ? '' : ' locked');
+    const hint = c.unlock === 'finale' ? "Se dévoile à l'inauguration." : `Se dévoile à la fin du chapitre ${CHAPTERS[c.unlock]?.roman}.`;
+    d.innerHTML = `<div class="card-year">${un ? c.year : '· · ·'}</div><div><h3>${un ? c.title : 'Page à découvrir'}</h3><p>${un ? c.text : hint}</p></div>`;
+    box.append(d);
+  }
+}
+
+/* ---- Réglages ---- */
+function renderSettings() {
+  $('#diff-' + save.difficulty).checked = true;
+  $('#q-' + save.quality).checked = true;
+  $('#set-volume').value = save.volume; $('#set-reverb').value = save.reverb;
+  $('#set-reset').textContent = 'Effacer la progression'; $('#set-reset').dataset.armed = ''; $('#set-reset-msg').textContent = '';
+}
+$$('input[name="diff"]').forEach(r => r.addEventListener('change', () => { save.difficulty = r.value; persist(); }));
+$$('input[name="quality"]').forEach(r => r.addEventListener('change', () => { save.quality = r.value; persist(); scene3d.quality(); }));
+$('#set-volume').addEventListener('input', e => { save.volume = +e.target.value; engine.setVolume(save.volume); persist(); });
+$('#set-reverb').addEventListener('input', e => { save.reverb = +e.target.value; engine.setReverb(save.reverb); persist(); });
+$('#set-reset').addEventListener('click', e => {
+  const b = e.currentTarget;
+  if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Confirmer l\'effacement'; $('#set-reset-msg').textContent = 'Les étoiles et la chronique seront perdues.'; return; }
+  save.stars = {}; save.finale = false; persist();
+  for (const d of DIV_ORDER) scene3d.restore(d, 0);
+  b.dataset.armed = ''; b.textContent = 'Effacer la progression'; $('#set-reset-msg').textContent = 'Progression effacée.';
+});
+
+/* ---- Finale ---- */
+function openFinale() {
+  show('finale');
+  $('#finale-intro').hidden = false; $('#finale-credits').hidden = true;
+  for (const d of DIV_ORDER) scene3d.restore(d, 1);
+  scene3d.view('finaleStart', 2.5);
+}
+function playTutti() {
+  ensureAudio();
+  $('#finale-intro').hidden = true; $('#finale-credits').hidden = true;
+  const p = PRESETS.find(x => x.id === 'tutti');
+  con.pulled = new Set(p.stops); con.acc = { c12: false, c32: false, t1: false, t2: false, t3: false, ...p.acc }; con.appel = { P: true, GO: true, R: true, Ped: true };
+  engine.setSwell(1); scene3d.swell(1);
+  const ph = toccata();
+  scene3d.view('finaleStart', 0.01);
+  setTimeout(() => scene3d.view('finaleEnd', ph.length + 2), 60);
+  scene3d.flash(1);
+  engine.play(ph, { div: 'GO', stopsFor: currentStops, divsFor: targets, onEnd: done => {
+    if (!done || mode !== 'finale') return;
+    if (!save.finale) { save.finale = true; persist(); toast('Nouvelle page dans la chronique : les titulaires.'); }
+    $('#finale-credits').hidden = false;
+  } });
+}
+$('#btn-tutti').addEventListener('click', playTutti);
+$('#fin-again').addEventListener('click', playTutti);
+$('#fin-console').addEventListener('click', () => show('console'));
+
+/* ---- Audio ---- */
+function ensureAudio() { engine.init(); }
+window.addEventListener('pointerdown', () => { if (mode !== 'title') ensureAudio(); }, { passive: true });
+
+/* ============================== SCÈNE 3D ================================= */
+
+const scene3d = {
+  ok: false, panel: 0,
+  view() {}, setPanel(px) { this.panel = px; }, restore() {}, flash() {}, swell() {}, quality() {},
+};
+hooks.noteOn = (d, n) => scene3d.note?.(d, n, true);
+hooks.noteOff = (d, n) => scene3d.note?.(d, n, false);
+
+async function initScene() {
+  let THREE, OrbitControls, EffectComposer, RenderPass, UnrealBloomPass, OutputPass, RoomEnvironment;
+  try {
+    THREE = await import('three');
+    [{ OrbitControls }, { EffectComposer }, { RenderPass }, { UnrealBloomPass }, { OutputPass }, { RoomEnvironment }] = await Promise.all([
+      import('three/addons/controls/OrbitControls.js'),
+      import('three/addons/postprocessing/EffectComposer.js'),
+      import('three/addons/postprocessing/RenderPass.js'),
+      import('three/addons/postprocessing/UnrealBloomPass.js'),
+      import('three/addons/postprocessing/OutputPass.js'),
+      import('three/addons/environments/RoomEnvironment.js'),
+    ]);
+  } catch (e) {
+    console.warn(e); toast("La vue 3D n'a pas pu se charger. Le jeu reste jouable."); return;
+  }
+  const T = THREE;
+  const canvas = $('#scene');
+  let renderer;
+  try { renderer = new T.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' }); }
+  catch (e) { console.warn(e); toast("La 3D n'est pas disponible sur cet appareil. Le jeu reste jouable."); return; }
+  renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.98;
+  renderer.outputColorSpace = T.SRGBColorSpace;
+  const scene = new T.Scene();
+  scene.background = new T.Color(0x0a0806);
+  scene.fog = new T.FogExp2(0x0c0907, 0.0105);
+  const cam = new T.PerspectiveCamera(42, 1, 0.1, 240);
+  const pmrem = new T.PMREMGenerator(renderer);
+  const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+  /* ---- textures procédurales ---- */
+  const canvasTex = (w, h, draw, rep = [1, 1], srgb = true) => {
+    const c = document.createElement('canvas'); c.width = w; c.height = h; draw(c.getContext('2d'), w, h);
+    const t = new T.CanvasTexture(c); if (srgb) t.colorSpace = T.SRGBColorSpace;
+    t.wrapS = t.wrapT = T.RepeatWrapping; t.repeat.set(rep[0], rep[1]); t.anisotropy = 4; return t;
+  };
+  const rnd = (() => { let s = 4242; return () => ((s = (s * 16807) % 2147483647) / 2147483647); })();
+  const speckle = (g, w, h, n, a) => { for (let i = 0; i < n; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '40,30,20' : '255,250,235'},${a * rnd()})`; g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2); } };
+  const texStone = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#d6cbb5'; g.fillRect(0, 0, w, h); speckle(g, w, h, 3000, 0.18);
+    g.strokeStyle = 'rgba(90,70,50,.22)'; g.lineWidth = 1.5;
+    for (let y = 0; y < h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); for (let x = (y / 64) % 2 ? 64 : 0; x < w; x += 128) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 64); g.stroke(); } }
+  }, [6, 3]);
+  const texFloor = canvasTex(256, 256, (g, w, h) => {
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { g.fillStyle = (x + y) % 2 ? '#d9cfba' : '#4a4038'; g.fillRect(x * 128, y * 128, 128, 128); }
+    speckle(g, w, h, 4000, 0.2);
+    g.strokeStyle = 'rgba(30,20,10,.35)'; g.lineWidth = 2; for (let i = 0; i <= 256; i += 128) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, h); g.stroke(); g.beginPath(); g.moveTo(0, i); g.lineTo(w, i); g.stroke(); }
+  }, [12, 28]);
+  const texWood = canvasTex(128, 512, (g, w, h) => {
+    g.fillStyle = '#4a3020'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 70; i++) { const x = rnd() * w; g.strokeStyle = `rgba(${rnd() < 0.5 ? '20,10,5' : '120,85,55'},${0.15 + rnd() * 0.25})`; g.lineWidth = 0.5 + rnd() * 2; g.beginPath(); g.moveTo(x, 0); for (let y = 0; y <= h; y += 16) g.lineTo(x + Math.sin(y / 40 + i) * 3, y); g.stroke(); }
+  }, [1, 1]);
+  const texCoffer = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = '#cfc3aa'; g.fillRect(0, 0, w, h);
+    const grd = g.createLinearGradient(24, 24, 232, 232); grd.addColorStop(0, '#8f826b'); grd.addColorStop(1, '#b7aa90');
+    g.fillStyle = grd; g.fillRect(22, 22, 212, 212);
+    g.fillStyle = '#a89a7f'; g.fillRect(44, 44, 168, 168);
+    g.fillStyle = '#7d705a'; g.fillRect(56, 56, 144, 144);
+    g.fillStyle = '#c9a24c'; g.beginPath(); for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2, r = k % 2 ? 14 : 30; g.lineTo(128 + Math.cos(a) * r, 128 + Math.sin(a) * r); } g.closePath(); g.fill();
+    g.fillStyle = '#8d6a24'; g.beginPath(); g.arc(128, 128, 9, 0, Math.PI * 2); g.fill();
+  }, [4, 15]);
+  const texGlass = canvasTex(128, 256, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h); grd.addColorStop(0, '#fff6dd'); grd.addColorStop(1, '#f1d9a6'); g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.strokeStyle = 'rgba(60,45,30,.55)'; g.lineWidth = 2;
+    for (let i = -h; i < w + h; i += 22) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i + h, h); g.stroke(); g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke(); }
+  }, [1, 1]);
+  const texRay = canvasTex(64, 256, (g, w, h) => {
+    const gx = g.createLinearGradient(0, 0, w, 0); gx.addColorStop(0, 'rgba(255,255,255,0)'); gx.addColorStop(0.5, 'rgba(255,255,255,1)'); gx.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gx; g.fillRect(0, 0, w, h);
+    g.globalCompositeOperation = 'destination-in';
+    const gy = g.createLinearGradient(0, 0, 0, h); gy.addColorStop(0, 'rgba(0,0,0,0)'); gy.addColorStop(0.12, 'rgba(0,0,0,1)'); gy.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gy; g.fillRect(0, 0, w, h);
+  }, [1, 1], false);
+  const texDot = canvasTex(64, 64, (g) => {
+    const r = g.createRadialGradient(32, 32, 0, 32, 32, 32); r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.35, 'rgba(255,240,210,.5)'); r.addColorStop(1, 'rgba(255,240,210,0)');
+    g.fillStyle = r; g.fillRect(0, 0, 64, 64);
+  }, [1, 1], false);
+  // Claire-voie : rinceaux dorés ajourés
+  const texCarve = canvasTex(512, 160, (g, w, h) => {
+    g.clearRect(0, 0, w, h); g.strokeStyle = '#fff'; g.fillStyle = '#fff'; g.lineCap = 'round';
+    const scroll = (cx, cy, r, dir, turns) => {
+      g.beginPath(); const steps = 60;
+      for (let i = 0; i <= steps; i++) { const t = i / steps, a = dir * t * turns * Math.PI * 2, rr = r * (1 - t * 0.85); const x = cx + Math.cos(a) * rr, y = cy + Math.sin(a) * rr; i ? g.lineTo(x, y) : g.moveTo(x, y); }
+      g.lineWidth = 9; g.stroke();
+    };
+    const half = (s) => {
+      g.save(); if (s < 0) { g.translate(w, 0); g.scale(-1, 1); }
+      g.lineWidth = 10; g.beginPath(); g.moveTo(20, h - 22); g.bezierCurveTo(90, h - 120, 170, h - 10, 236, h - 70); g.stroke();
+      scroll(70, h - 70, 34, 1, 1.1); scroll(170, h - 62, 30, -1, 1.1); scroll(232, h - 98, 18, 1, 1.2);
+      for (let i = 0; i < 6; i++) { g.beginPath(); g.ellipse(40 + i * 36, h - 18 - (i % 2) * 14, 13, 5, (i % 2 ? 0.6 : -0.6), 0, Math.PI * 2); g.fill(); }
+      g.restore();
+    };
+    half(1); half(-1);
+    g.beginPath(); g.arc(w / 2, h - 60, 24, 0, Math.PI * 2); g.lineWidth = 8; g.stroke();
+    g.beginPath(); g.moveTo(w / 2, h - 36); g.lineTo(w / 2, h - 8); g.stroke();
+    g.fillRect(0, h - 10, w, 10);
+  }, [1, 1], false);
+
+  /* ---- matériaux ---- */
+  const M = {
+    stone: new T.MeshStandardMaterial({ map: texStone, color: 0xe2d8c4, roughness: 0.92 }),
+    floor: new T.MeshStandardMaterial({ map: texFloor, color: 0xffffff, roughness: 0.55, envMap: env, envMapIntensity: 0.15 }),
+    plaster: new T.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.95 }),
+    coffer: new T.MeshStandardMaterial({ map: texCoffer, color: 0xffffff, roughness: 0.9, side: T.DoubleSide }),
+    oak: new T.MeshStandardMaterial({ map: texWood, color: 0xa47c58, roughness: 0.5, envMap: env, envMapIntensity: 0.25 }),
+    oakDark: new T.MeshStandardMaterial({ map: texWood, color: 0x5e4330, roughness: 0.6 }),
+    shadow: new T.MeshStandardMaterial({ color: 0x0b0806, roughness: 1, side: T.DoubleSide }),
+    gold: new T.MeshStandardMaterial({ color: 0x8a6c2c, metalness: 1, roughness: 0.55, envMap: env, envMapIntensity: 1.0, emissive: 0x2a1e06, emissiveIntensity: 0 }),
+    carve: new T.MeshStandardMaterial({ map: texCarve, color: 0x8a6c2c, metalness: 0.9, roughness: 0.45, envMap: env, envMapIntensity: 1, alphaTest: 0.4, side: T.DoubleSide }),
+    mouth: new T.MeshBasicMaterial({ color: 0x050403 }),
+    ivory: new T.MeshStandardMaterial({ color: 0xeee4cc, roughness: 0.4 }),
+    glassS: new T.MeshBasicMaterial({ map: texGlass, color: 0xfff0d0 }),
+    glassN: new T.MeshBasicMaterial({ map: texGlass, color: 0x9a8d78 }),
+    flame: new T.SpriteMaterial({ map: texDot, color: 0xffc36b, blending: T.AdditiveBlending, depthWrite: false }),
+  };
+  const tin = {}; for (const d of DIV_ORDER) tin[d] = new T.MeshStandardMaterial({ color: 0x5f5a50, metalness: 0.6, roughness: 0.78, envMap: env, envMapIntensity: 0.7 });
+  const DUSTY = new T.Color(0x5b564c), CLEAN = new T.Color(0xaeb2b8);
+
+  const root = new T.Group(); scene.add(root);
+  const add = (geo, mat, x, y, z, parent = root) => { const m = new T.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+  const box = (w, h, d, mat, x, y, z, parent) => add(new T.BoxGeometry(w, h, d), mat, x, y, z, parent);
+
+  /* ---- église néoclassique ---- */
+  const floor = add(new T.PlaneGeometry(26, 60), M.floor, 0, 0, -26); floor.rotation.x = -Math.PI / 2;
+  for (const s of [-1, 1]) {
+    const cw = add(new T.PlaneGeometry(52, 10.4), M.plaster, s * 7, 14.8, -24); cw.rotation.y = -s * Math.PI / 2;
+    const aw = add(new T.PlaneGeometry(52, 9.6), M.stone, s * 12, 4.8, -24); aw.rotation.y = -s * Math.PI / 2;
+    const ac = add(new T.PlaneGeometry(5, 52), M.plaster, s * 9.5, 9.6, -24); ac.rotation.x = Math.PI / 2;
+    box(1.5, 1.0, 54, M.stone, s * 7, 9.1, -24);
+    box(0.9, 0.5, 52, M.stone, s * 6.75, 19.75, -24);
+    for (let z = -7; z >= -47; z -= 5) {
+      add(new T.CylinderGeometry(0.5, 0.56, 7.6, 20), M.stone, s * 7, 4.4, z);
+      box(1.35, 0.6, 1.35, M.stone, s * 7, 0.3, z);
+      add(new T.CylinderGeometry(0.72, 0.5, 0.4, 20), M.stone, s * 7, 8.4, z);
+      box(1.5, 0.22, 1.5, M.stone, s * 7, 8.62, z);
+    }
+    for (let z = -9.5; z >= -44.5; z -= 5) {
+      const sh = new T.Shape(); sh.moveTo(-1.1, 0); sh.lineTo(1.1, 0); sh.lineTo(1.1, 3.6); sh.absarc(0, 3.6, 1.1, 0, Math.PI, false); sh.lineTo(-1.1, 0);
+      const win = add(new T.ShapeGeometry(sh, 16), s > 0 ? M.glassS : M.glassN, s * 6.97, 12.2, z); win.rotation.y = -s * Math.PI / 2;
+      const uv = win.geometry.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, (uv.getX(i) + 1.1) / 2.2, uv.getY(i) / 4.7);
+    }
+  }
+  const ceil = add(new T.PlaneGeometry(14, 52), M.coffer, 0, 20, -24); ceil.rotation.x = Math.PI / 2;
+  const west = add(new T.PlaneGeometry(26, 20), M.stone, 0, 10, 2.05); west.rotation.y = Math.PI;
+  box(3, 4.4, 0.3, M.oak, 0, 2.2, 1.9); box(3.3, 0.12, 0.34, M.gold, 0, 4.45, 1.88);
+  add(new T.CylinderGeometry(7, 7, 13, 40, 1, true, Math.PI / 2, Math.PI), M.plaster, 0, 6.5, -50).material = new T.MeshStandardMaterial({ color: 0xd8ccb2, roughness: 0.95, side: T.DoubleSide });
+  add(new T.SphereGeometry(7, 40, 20, Math.PI, Math.PI, 0, Math.PI / 2), new T.MeshStandardMaterial({ color: 0xc9ac6a, roughness: 0.6, metalness: 0.3, side: T.DoubleSide, envMap: env, envMapIntensity: 0.4 }), 0, 13, -50);
+  const apseFloor = add(new T.CircleGeometry(7, 40, 0, Math.PI), M.floor, 0, 0.01, -50); apseFloor.rotation.x = -Math.PI / 2;
+  box(14.4, 1.2, 1, M.stone, 0, 19.4, -50.2);
+  // Autel et chandeliers
+  box(5, 0.35, 3.2, M.stone, 0, 0.18, -45); box(4, 0.35, 2.6, M.stone, 0, 0.5, -45.2);
+  box(3.2, 1.1, 1.3, M.stone, 0, 1.2, -45.4); box(3.0, 0.85, 0.05, M.gold, 0, 1.2, -44.73);
+  const candles = [];
+  for (const x of [-1.3, -0.8, -0.3, 0.3, 0.8, 1.3]) {
+    add(new T.CylinderGeometry(0.05, 0.09, 0.5, 10), M.gold, x, 2.0, -45.6);
+    add(new T.CylinderGeometry(0.035, 0.035, 0.45, 8), M.ivory, x, 2.48, -45.6);
+    const fl = new T.Sprite(M.flame); fl.position.set(x, 2.78, -45.6); fl.scale.set(0.16, 0.26, 1); root.add(fl); candles.push(fl);
+  }
+  const altarLight = new T.PointLight(0xffb867, 4, 14, 0); altarLight.position.set(0, 3.2, -44.5); scene.add(altarLight);
+
+  /* ---- tribune ---- */
+  box(14, 0.45, 6.4, M.stone, 0, 6.78, -1.2);
+  box(14, 0.6, 0.35, M.oak, 0, 6.75, -4.32); box(14, 0.08, 0.38, M.gold, 0, 6.48, -4.33);
+  for (const x of [-4.6, 4.6]) add(new T.CylinderGeometry(0.42, 0.46, 6.55, 18), M.stone, x, 3.28, -4.2);
+  const balG = new T.LatheGeometry([[0, 0], [0.09, 0], [0.09, 0.08], [0.05, 0.16], [0.11, 0.42], [0.05, 0.7], [0.07, 0.8], [0.07, 0.86], [0, 0.86]].map(p => new T.Vector2(p[0], p[1])), 10);
+  const balX = []; for (let x = -6.8; x <= 6.8; x += 0.34) if (Math.abs(x) > 3.15) balX.push(x);
+  const bal = new T.InstancedMesh(balG, M.oak, balX.length); const mm = new T.Matrix4();
+  balX.forEach((x, i) => { mm.makeTranslation(x, 7.05, -4.22); bal.setMatrixAt(i, mm); }); root.add(bal);
+  for (const s of [-1, 1]) { box(3.7, 0.16, 0.32, M.oak, s * 4.95, 7.98, -4.22); box(3.7, 0.04, 0.34, M.gold, s * 4.95, 8.07, -4.22); }
+
+  /* ---- buffet d'orgue ---- */
+  const pipeData = { P: [], GO: [], R: [], Ped: [] };
+  const addPipe = (div, x, z, y0, h, r, face) => pipeData[div].push({ x, z, y0, h, r, face });
+  const vase = (x, y, z, s) => {
+    const pts = [[0, 0], [0.2, 0], [0.24, 0.08], [0.12, 0.18], [0.1, 0.26], [0.26, 0.42], [0.3, 0.56], [0.2, 0.72], [0.08, 0.8], [0.12, 0.9], [0.05, 1.05], [0, 1.2]].map(p => new T.Vector2(p[0] * s, p[1] * s));
+    add(new T.LatheGeometry(pts, 18), M.gold, x, y, z);
+  };
+  const sun = (x, y, z, s) => {
+    const g = new T.Group(); g.position.set(x, y, z); root.add(g);
+    const disc = new T.Mesh(new T.CylinderGeometry(0.42 * s, 0.42 * s, 0.1, 32), M.gold); disc.rotation.x = Math.PI / 2; g.add(disc);
+    for (let k = 0; k < 16; k++) {
+      const a = k / 16 * Math.PI * 2, L = (k % 2 ? 0.45 : 0.75) * s;
+      const ray = new T.Mesh(new T.ConeGeometry(0.07 * s, L, 6), M.gold);
+      ray.position.set(Math.cos(a) * (0.42 * s + L / 2), Math.sin(a) * (0.42 * s + L / 2), 0); ray.rotation.z = a - Math.PI / 2; g.add(ray);
+    }
+  };
+  const bodyFront = -0.25;
+  const tower = o => {
+    const { cx, cz, R, n, r, h, y0, div } = o;
+    add(new T.CylinderGeometry(R * 0.92, R * 0.92, h + 0.2, 20, 1, true, Math.PI / 2, Math.PI), M.shadow, cx, y0 + h / 2, cz);
+    box(2 * R, h + 0.2, Math.abs(bodyFront - cz), M.oakDark, cx, y0 + h / 2, (cz + bodyFront) / 2);
+    add(new T.CylinderGeometry(R + 0.24, 0.14, R * 1.5, 24, 1, false, Math.PI / 2, Math.PI), M.oak, cx, y0 - R * 0.75, cz);
+    add(new T.CylinderGeometry(R + 0.27, R + 0.27, 0.1, 24, 1, false, Math.PI / 2, Math.PI), M.gold, cx, y0 + 0.02, cz);
+    add(new T.CylinderGeometry(R + 0.34, R + 0.24, 0.46, 24, 1, false, Math.PI / 2, Math.PI), M.oak, cx, y0 + h + 0.33, cz);
+    add(new T.CylinderGeometry(R + 0.36, R + 0.36, 0.08, 24, 1, false, Math.PI / 2, Math.PI), M.gold, cx, y0 + h + 0.6, cz);
+    add(new T.CylinderGeometry(R + 0.27, R + 0.27, 0.07, 24, 1, false, Math.PI / 2, Math.PI), M.gold, cx, y0 + h + 0.09, cz);
+    for (let i = 0; i < n; i++) {
+      const th = Math.PI / 2 + (i + 0.5) / n * Math.PI;
+      const c = Math.abs(i - (n - 1) / 2) / ((n - 1) / 2 || 1);
+      addPipe(div, cx + R * Math.sin(th), cz + R * Math.cos(th), y0 + 0.08, h * (1 - 0.05 * c), r, th);
+    }
+    const top = y0 + h + 0.64;
+    if (o.orn === 'sun') sun(cx, top + 1.0, cz - R * 0.3, 1.05);
+    else if (o.orn === 'vase') vase(cx, top, cz - R * 0.35, o.vs || 1);
+  };
+  const flat = o => {
+    const { x0, x1, z, n, y0, h0, h1, r, div } = o;
+    const w = Math.abs(x1 - x0), cx = (x0 + x1) / 2, maxH = Math.max(h0, h1), minH = Math.min(h0, h1);
+    box(w + 0.3, maxH + 0.3, 0.12, M.shadow, cx, y0 + maxH / 2, z + 0.3);
+    box(w + 0.3, 0.26, 0.6, M.oak, cx, y0 - 0.1, z);
+    box(w + 0.32, 0.06, 0.62, M.gold, cx, y0 + 0.04, z);
+    for (let i = 0; i < n; i++) { const t = n > 1 ? i / (n - 1) : 0.5; addPipe(div, lerp(x0, x1, t), z, y0 + 0.08, lerp(h0, h1, t), r, Math.PI); }
+    const topY = o.topY ?? (y0 + maxH + 0.5);
+    const cvH = topY - (y0 + minH) + 0.1;
+    if (cvH > 0.25) { const cv = add(new T.PlaneGeometry(w + 0.2, Math.min(cvH, 1.2)), M.carve, cx, topY - Math.min(cvH, 1.2) / 2, z - 0.2); cv.rotation.y = Math.PI; }
+    box(w + 0.42, 0.34, 0.8, M.oak, cx, topY + 0.17, z + 0.05);
+    box(w + 0.44, 0.06, 0.82, M.gold, cx, topY + 0.36, z + 0.05);
+  };
+  // Grand buffet : soubassement et console en fenêtre
+  box(15.2, 3.5, 3.6, M.oak, 0, 8.75, 0.2);
+  for (const x of [-5.2, -3.1, 3.1, 5.2]) { box(1.6, 2.2, 0.05, M.oakDark, x, 8.8, -1.62); for (const [w, hh, dx, dy] of [[1.7, 0.05, 0, 1.12], [1.7, 0.05, 0, -1.12], [0.05, 2.3, 0.85, 0], [0.05, 2.3, -0.85, 0]]) box(w, hh, 0.06, M.gold, x + dx, 8.8 + dy, -1.64); }
+  box(3.6, 2.1, 0.04, M.shadow, 0, 8.85, -1.63);
+  for (const [y, z] of [[8.2, -1.8], [8.42, -1.76], [8.64, -1.72]]) box(2.9, 0.06, 0.2, M.ivory, 0, y, z);
+  for (const s of [-1, 1]) for (let k = 0; k < 6; k++) add(new T.CylinderGeometry(0.05, 0.05, 0.08, 10), M.ivory, s * (1.55 - (k % 2) * 0.16), 8.5 + Math.floor(k / 2) * 0.24, -1.68).rotation.x = Math.PI / 2;
+  box(1.5, 0.5, 0.04, M.oakDark, 0, 9.3, -1.7);
+  box(2.4, 0.1, 0.5, M.oak, 0, 7.55, -2.4); for (const s of [-1, 1]) box(0.08, 0.5, 0.45, M.oak, s * 1.1, 7.25, -2.4);
+  box(15.6, 0.36, 3.9, M.oak, 0, 10.6, 0.15); box(15.65, 0.07, 3.95, M.gold, 0, 10.8, 0.15);
+  box(14.4, 8.4, 2.4, M.oakDark, 0, 15.0, 1.0);
+  box(14.8, 0.5, 2.8, M.oak, 0, 19.0, 0.9); box(14.85, 0.07, 2.85, M.gold, 0, 19.27, 0.9);
+  // Tourelles et plates-faces
+  for (const s of [-1, 1]) {
+    tower({ cx: s * 6.15, cz: -1.3, R: 1.12, n: 9, r: 0.2, h: 6.6, y0: 10.85, div: 'Ped', orn: 'vase', vs: 1.1 });
+    tower({ cx: s * 2.75, cz: -1.4, R: 0.74, n: 7, r: 0.13, h: 4.6, y0: 11.25, div: 'GO', orn: 'vase', vs: 0.9 });
+    flat({ x0: s * 3.7, x1: s * 5.0, z: -1.0, n: 7, y0: 11.0, h0: 3.7, h1: 5.0, r: 0.1, div: 'GO', topY: 16.55 });
+    flat({ x0: s * 0.98, x1: s * 1.94, z: -0.95, n: 5, y0: 11.15, h0: 2.0, h1: 2.3, r: 0.075, div: 'R', topY: 13.75 });
+    flat({ x0: s * 0.98, x1: s * 1.94, z: -0.95, n: 5, y0: 14.35, h0: 1.55, h1: 1.95, r: 0.065, div: 'R', topY: 16.55 });
+    vase(s * 4.35, 16.95, -1.0, 0.7);
+  }
+  tower({ cx: 0, cz: -1.55, R: 0.98, n: 9, r: 0.165, h: 5.6, y0: 11.0, div: 'GO', orn: 'sun' });
+  // Positif de dos
+  box(5.6, 0.95, 1.5, M.oak, 0, 6.55, -5.0);
+  const culG = new T.CylinderGeometry(1.7, 0.25, 0.85, 4, 1); culG.rotateY(Math.PI / 4); culG.scale(1.45, 1, 0.4); add(culG, M.oak, 0, 5.65, -5.0);
+  box(5.65, 0.07, 1.52, M.gold, 0, 6.98, -5.0); box(5.65, 0.06, 1.52, M.gold, 0, 6.1, -5.0);
+  box(5.4, 3.6, 1.0, M.oakDark, 0, 8.85, -4.7);
+  const pb = -4.2;
+  const ptower = (cx, R, n, r, h, y0, orn) => {
+    add(new T.CylinderGeometry(R * 0.92, R * 0.92, h + 0.2, 16, 1, true, Math.PI / 2, Math.PI), M.shadow, cx, y0 + h / 2, -5.45);
+    box(2 * R, h + 0.2, Math.abs(pb - -5.45), M.oakDark, cx, y0 + h / 2, (-5.45 + pb) / 2);
+    add(new T.CylinderGeometry(R + 0.18, 0.1, R * 1.3, 20, 1, false, Math.PI / 2, Math.PI), M.oak, cx, y0 - R * 0.6, -5.45);
+    add(new T.CylinderGeometry(R + 0.26, R + 0.18, 0.34, 20, 1, false, Math.PI / 2, Math.PI), M.oak, cx, y0 + h + 0.25, -5.45);
+    add(new T.CylinderGeometry(R + 0.27, R + 0.27, 0.06, 20, 1, false, Math.PI / 2, Math.PI), M.gold, cx, y0 + h + 0.45, -5.45);
+    for (let i = 0; i < n; i++) { const th = Math.PI / 2 + (i + 0.5) / n * Math.PI; addPipe('P', cx + R * Math.sin(th), -5.45 + R * Math.cos(th), y0 + 0.06, h, r, th); }
+    vase(cx, y0 + h + 0.48, -5.6, orn);
+  };
+  ptower(0, 0.56, 7, 0.085, 2.6, 7.15, 0.7);
+  for (const s of [-1, 1]) {
+    ptower(s * 2.2, 0.46, 7, 0.072, 2.15, 7.25, 0.55);
+    flat({ x0: s * 0.78, x1: s * 1.62, z: -5.15, n: 5, y0: 7.3, h0: 1.75, h1: 1.4, r: 0.06, div: 'P', topY: 9.55 });
+  }
+  // Instanciation des tuyaux par plan sonore
+  const geoBody = new T.CylinderGeometry(1, 1, 1, 14, 1); geoBody.translate(0, 0.5, 0);
+  const geoFoot = new T.CylinderGeometry(1, 0.22, 1, 14, 1, true); geoFoot.translate(0, 0.5, 0);
+  const geoMouth = new T.BoxGeometry(1, 1, 1);
+  const pipes = {};
+  const q = new T.Quaternion(), e3 = new T.Euler(), v3 = new T.Vector3(), sc = new T.Vector3(), white = new T.Color(1, 1, 1);
+  for (const d of DIV_ORDER) {
+    const list = pipeData[d], n = list.length;
+    const body = new T.InstancedMesh(geoBody, tin[d], n), foot = new T.InstancedMesh(geoFoot, tin[d], n), mouth = new T.InstancedMesh(geoMouth, M.mouth, n);
+    list.forEach((p, i) => {
+      const fh = clamp(p.h * 0.19, 0.2, 1.2);
+      q.identity(); v3.set(p.x, p.y0, p.z); sc.set(p.r, fh, p.r); mm.compose(v3, q, sc); foot.setMatrixAt(i, mm);
+      v3.set(p.x, p.y0 + fh, p.z); sc.set(p.r, p.h - fh, p.r); mm.compose(v3, q, sc); body.setMatrixAt(i, mm);
+      e3.set(0, p.face, 0); q.setFromEuler(e3);
+      v3.set(p.x + Math.sin(p.face) * p.r * 0.97, p.y0 + fh + p.r * 0.55, p.z + Math.cos(p.face) * p.r * 0.97); sc.set(p.r * 1.15, p.r * 0.95, 0.025);
+      mm.compose(v3, q, sc); mouth.setMatrixAt(i, mm);
+      body.setColorAt(i, white); foot.setColorAt(i, white);
+    });
+    root.add(body, foot, mouth);
+    const order = list.map((p, i) => i).sort((a, b) => list[b].h - list[a].h);
+    pipes[d] = { body, foot, n, order, glow: new Float32Array(n), tgt: new Float32Array(n), active: 0 };
+  }
+
+  /* ---- lumières ---- */
+  scene.add(new T.HemisphereLight(0xffe0bc, 0x24180e, 0.62));
+  const sunL = new T.DirectionalLight(0xffd29a, 2.1); sunL.position.set(30, 38, -18); sunL.target.position.set(0, 0, -26); scene.add(sunL, sunL.target);
+  const organSpot = new T.SpotLight(0xffe0b4, 1.2, 0, 0.55, 0.7, 0); organSpot.position.set(0, 16, -24); organSpot.target.position.set(0, 12, -1); scene.add(organSpot, organSpot.target);
+  const posSpot = new T.SpotLight(0xffd9a6, 0.8, 0, 0.35, 0.8, 0); posSpot.position.set(0, 9, -16); posSpot.target.position.set(0, 8.4, -5); scene.add(posSpot, posSpot.target);
+  const recitGlow = new T.PointLight(0xffb45c, 0.2, 7, 0); recitGlow.position.set(0, 14.2, -0.6); scene.add(recitGlow);
+  const naveFill = new T.PointLight(0xffcf98, 0.9, 40, 0); naveFill.position.set(0, 12, -20); scene.add(naveFill);
+
+  // Rayons de soleil par les fenêtres hautes
+  const rayMat = new T.MeshBasicMaterial({ map: texRay, color: 0xffd9a0, transparent: true, opacity: 0.06, blending: T.AdditiveBlending, depthWrite: false, side: T.DoubleSide });
+  const rays = [];
+  for (let z = -9.5; z >= -44.5; z -= 5) {
+    const a = new T.Vector3(6.8, 14.5, z), b = new T.Vector3(-3.2, 0, z - 2.5);
+    const L = a.distanceTo(b), mid = a.clone().add(b).multiplyScalar(0.5);
+    const ray = add(new T.PlaneGeometry(2.3, L), rayMat, mid.x, mid.y, mid.z);
+    ray.rotation.z = Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2; ray.rotation.y = 0.25;
+    rays.push(ray);
+  }
+  // Poussière en suspension
+  const DUSTN = 1400;
+  const dpos = new Float32Array(DUSTN * 3), dseed = new Float32Array(DUSTN);
+  for (let i = 0; i < DUSTN; i++) { dpos[i * 3] = (rnd() - 0.5) * 13; dpos[i * 3 + 1] = 0.5 + rnd() * 18; dpos[i * 3 + 2] = -2 - rnd() * 44; dseed[i] = rnd() * 100; }
+  const dgeo = new T.BufferGeometry(); dgeo.setAttribute('position', new T.BufferAttribute(dpos, 3));
+  const dust = new T.Points(dgeo, new T.PointsMaterial({ map: texDot, size: 0.07, color: 0xffe2b0, transparent: true, opacity: 0.6, depthWrite: false, blending: T.AdditiveBlending }));
+  scene.add(dust);
+
+  /* ---- rendu, post-traitement ---- */
+  let composer = null, bloom = null;
+  const autoLight = COARSE || (navigator.hardwareConcurrency || 8) <= 4 || Math.min(screen.width, screen.height) < 600;
+  const isHigh = () => save.quality === 'high' || (save.quality === 'auto' && !autoLight);
+  const controls = new OrbitControls(cam, canvas);
+  Object.assign(controls, { enableDamping: true, dampingFactor: 0.08, enablePan: false, minDistance: 5, maxDistance: 95, minPolarAngle: 1.05, maxPolarAngle: 1.9, minAzimuthAngle: Math.PI - 0.75, maxAzimuthAngle: -Math.PI + 0.75, rotateSpeed: 0.45, zoomSpeed: 0.7 });
+
+  const VIEWS = {
+    far: [[0, 4.5, -46], [0, 12, -1]],
+    overview: [[0, 9, -28], [0, 12.6, -1]],
+    P: [[0, 9.4, -19.5], [0, 9.0, -4.8]],
+    GO: [[0, 12.2, -21], [0, 14.2, -1]],
+    R: [[0, 13.8, -14.5], [0, 13.9, -1]],
+    Ped: [[0, 10.8, -25], [0, 13.6, -1]],
+    finaleStart: [[0, 2.6, -42], [0, 12.5, -1]],
+    finaleEnd: [[0, 9.2, -20], [0, 13.4, -1]],
+  };
+  let tween = null;
+  const viewVecs = name => {
+    const [p, t] = VIEWS[name]; const P = new T.Vector3(...p), Tg = new T.Vector3(...t);
+    const aspect = cam.aspect || 1.6, k = Math.max(1, 1.45 / aspect);
+    return { p: Tg.clone().add(P.sub(Tg).multiplyScalar(k)), t: Tg };
+  };
+  scene3d.view = (name, dur = 2.4) => {
+    const to = viewVecs(name);
+    if (REDUCED || dur < 0.05) { cam.position.copy(to.p); controls.target.copy(to.t); cam.lookAt(to.t); tween = null; controls.enabled = true; return; }
+    tween = { fp: cam.position.clone(), ft: controls.target.clone(), to, t0: performance.now(), dur: dur * 1000 };
+    controls.enabled = false;
+  };
+  const restore = { P: 0, GO: 0, R: 0, Ped: 0 }, restoreTgt = { P: 0, GO: 0, R: 0, Ped: 0 };
+  scene3d.restore = (d, v) => { restoreTgt[d] = v; };
+  let flash = 0;
+  scene3d.flash = (k = 1) => { flash = Math.max(flash, k); };
+  scene3d.note = (d, n, on) => {
+    const P = pipes[d]; if (!P || !P.n) return;
+    const D = DIVS[d]; const k = Math.round(clamp((n - D.low) / (D.high - D.low), 0, 1) * (P.n - 1));
+    const i = P.order[k]; P.tgt[i] = Math.max(0, P.tgt[i] + (on ? 1 : -1)); if (on) P.glow[i] = Math.max(P.glow[i], 0.6); P.active = 2;
+  };
+  scene3d.swell = v => { recitGlow.userData.swell = v; };
+  scene3d.setPanel = px => { scene3d.panel = px; resize(); };
+  scene3d.quality = () => { resize(); };
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, isHigh() ? 1.75 : 1.15));
+    renderer.setSize(w, h, false);
+    cam.aspect = w / h;
+    const d = Math.round(Math.min(scene3d.panel, h * 0.6) / 2);
+    // le décalage agrandit l'image virtuelle : on élargit le champ pour garder l'échelle
+    cam.fov = 2 * Math.atan(Math.tan(T.MathUtils.degToRad(21)) * (h + 2 * d) / h) * 180 / Math.PI;
+    if (d > 0) cam.setViewOffset(w, h + 2 * d, 0, 2 * d, w, h); else cam.clearViewOffset();
+    cam.updateProjectionMatrix();
+    if (isHigh()) {
+      if (!composer) {
+        composer = new EffectComposer(renderer);
+        composer.addPass(new RenderPass(scene, cam));
+        bloom = new UnrealBloomPass(new T.Vector2(w, h), 0.32, 0.5, 0.9);
+        composer.addPass(bloom); composer.addPass(new OutputPass());
+      }
+      composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
+    }
+  }
+  window.addEventListener('resize', () => { resize(); if (mode === 'level' || mode === 'console') buildKeyboards(); });
+
+  const goldDim = new T.Color(0x6e5523), goldBright = new T.Color(0xd8ae52), tmpC = new T.Color();
+  let last = performance.now();
+  function loop(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (tween) {
+      const k = ease(clamp((now - tween.t0) / tween.dur, 0, 1));
+      cam.position.lerpVectors(tween.fp, tween.to.p, k); controls.target.lerpVectors(tween.ft, tween.to.t, k); cam.lookAt(controls.target);
+      if (k >= 1) { tween = null; controls.enabled = true; }
+    } else controls.update();
+    let avg = 0;
+    for (const d of DIV_ORDER) {
+      if (Math.abs(restore[d] - restoreTgt[d]) > 0.001) restore[d] += (restoreTgt[d] - restore[d]) * Math.min(1, dt * 1.1);
+      const r = restore[d]; avg += r / 4;
+      tin[d].color.lerpColors(DUSTY, CLEAN, r); tin[d].roughness = lerp(0.78, 0.3, r); tin[d].metalness = lerp(0.6, 1, r);
+      const P = pipes[d];
+      if (P.active > 0) {
+        let any = false;
+        for (let i = 0; i < P.n; i++) {
+          const target = P.tgt[i] > 0 ? 1 : 0;
+          P.glow[i] += (target - P.glow[i]) * Math.min(1, dt * (target ? 14 : 3.2));
+          if (P.glow[i] > 0.003) any = true;
+          const g = P.glow[i]; tmpC.setRGB(1 + g * 1.25, 1 + g * 0.95, 1 + g * 0.45);
+          P.body.setColorAt(i, tmpC); P.foot.setColorAt(i, tmpC);
+        }
+        P.body.instanceColor.needsUpdate = true; P.foot.instanceColor.needsUpdate = true;
+        if (!any) P.active--;
+      }
+    }
+    M.gold.color.lerpColors(goldDim, goldBright, avg); M.gold.roughness = lerp(0.55, 0.3, avg); M.gold.emissiveIntensity = avg * 0.25 + flash * 0.25;
+    M.carve.color.copy(M.gold.color);
+    flash = Math.max(0, flash - dt * 0.35);
+    organSpot.intensity = 2.4 + avg * 3.2 + flash * 1.6;
+    posSpot.intensity = 1.5 + restore.P * 4;
+    recitGlow.intensity = (0.4 + restore.R * 5) * (0.5 + 0.5 * (recitGlow.userData.swell ?? 1));
+    rayMat.opacity = 0.035 + avg * 0.045 + flash * 0.04;
+    const tt = now / 1000;
+    for (let i = 0; i < candles.length; i++) { const f = 0.9 + Math.sin(tt * 9 + i * 1.7) * 0.05 + Math.sin(tt * 23 + i) * 0.04; candles[i].scale.set(0.16 * f, 0.26 * f, 1); }
+    altarLight.intensity = 4 + Math.sin(tt * 11) * 0.25 + Math.sin(tt * 27) * 0.15;
+    const pa = dgeo.attributes.position.array;
+    for (let i = 0; i < DUSTN; i++) {
+      const s = dseed[i];
+      pa[i * 3] += Math.sin(tt * 0.21 + s) * 0.0025; pa[i * 3 + 1] += Math.sin(tt * 0.13 + s * 1.3) * 0.002 - 0.0007; pa[i * 3 + 2] += Math.cos(tt * 0.17 + s) * 0.002;
+      if (pa[i * 3 + 1] < 0.3) pa[i * 3 + 1] = 18;
+    }
+    dgeo.attributes.position.needsUpdate = true;
+    if (isHigh() && composer) { bloom.strength = 0.32 + flash * 0.12; composer.render(); } else renderer.render(scene, cam);
+  }
+
+  for (const d of DIV_ORDER) { restore[d] = restoreTgt[d] = save.finale ? 1 : chapterProgress(CHAPTERS.findIndex(c => c.div === d)); }
+  resize();
+  scene3d.view(mode === 'title' ? 'far' : 'overview', 0);
+  updatePanelOffset();
+  renderer.setAnimationLoop(loop);
+  scene3d.ok = true;
+  window.__relevage.scene = { cam, controls, pipes, restore };
+}
+
+/* ================================ DÉMARRAGE ============================== */
+
+$('#btn-enter').addEventListener('click', () => {
+  ensureAudio();
+  show('menu');
+});
+
+window.__relevage = { engine, computeSpec, similarity, outSpectrum, STOP, STOPS, LEVELS, lv, con, save, openLevel, show, toccata, PH, held };
+
+window.claude?.hot?.snapshot?.(() => ({ mode, level: lv.idx }));
+function start(data) {
+  if (data && data.mode && data.mode !== 'title') {
+    if (data.mode === 'level' && Number.isInteger(data.level)) openLevel(data.level);
+    else show(SCREENS.includes(data.mode) && data.mode !== 'finale' ? data.mode : 'menu');
+  }
+  initScene();
+}
+window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+</script>
+
+</body>
+</html>
